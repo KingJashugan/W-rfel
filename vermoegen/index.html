@@ -155,6 +155,8 @@ section{display:grid;gap:14px;min-width:0}
 .bar i{display:block;height:100%;width:0;background:var(--brass);transition:width .95s linear}
 .bar i.jump{transition:none}
 .item .count{font-family:var(--f-num);font-size:.75rem;color:var(--soft)}
+.items-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.items-bar .btn[disabled]{opacity:.45;cursor:default;background:transparent;color:var(--ink)}
 .item.locked .ico{border-style:dashed;color:var(--soft);border-color:var(--soft)}
 .item.locked h3,.item.locked .every{color:var(--soft)}
 .item.pop{animation:pop .7s ease-out}
@@ -332,7 +334,14 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
   </section>
 
   <section aria-labelledby="s-items">
-    <div class="sec-head"><h2 id="s-items">Was deine Zinsen bezahlen</h2><p>Alle Zinsen seit dem Stichtag (0:00 Uhr), ohne die Sparrate anzutasten: So oft hättest du dir das schon leisten können. Gedimmte Karten schaltet erst ein größeres Vermögen frei. Preise sind Beispiele.</p></div>
+    <div class="sec-head"><h2 id="s-items">Was deine Zinsen bezahlen</h2><p>Aus den Zinsen, ohne die Sparrate anzutasten: So oft hättest du dir das schon leisten können. Gedimmte Karten schaltet erst ein größeres Vermögen frei. Preise sind Beispiele.</p></div>
+    <div class="items-bar">
+      <p class="small" id="items-from"></p>
+      <div class="btn-row">
+        <button type="button" class="btn quiet" id="b-items-reset">Auf 0 setzen</button>
+        <button type="button" class="btn quiet" id="b-items-stichtag">Seit Stichtag berechnen</button>
+      </div>
+    </div>
     <div class="items" id="items"></div>
   </section>
 
@@ -482,10 +491,11 @@ function writeStore(){try{localStorage.setItem(LS_KEY,JSON.stringify(st))}catch(
 var loadedAt=Date.now();
 var saved=readStore();
 function midnight(ms){var d=new Date(ms);return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()}
-function defaults(){return {V0:50000,s:500,r:6,i:2,tf:true,stichtag:midnight(Date.now()),mode:'nominal',counter:'total',reached:0,setOpen:false,sig:'',lastSeen:null,example:true}}
+function defaults(){return {V0:50000,s:500,r:6,i:2,tf:true,stichtag:midnight(Date.now()),mode:'nominal',counter:'total',reached:0,setOpen:false,itemsFrom:null,sig:'',lastSeen:null,example:true}}
 var st=Object.assign(defaults(),saved||{});
 ['V0','s','r','i','stichtag'].forEach(function(k){if(typeof st[k]!=='number'||!isFinite(st[k]))st[k]=defaults()[k]});
 delete st.unlocked;
+if(typeof st.itemsFrom!=='number'||!isFinite(st.itemsFrom))st.itemsFrom=null;
 /* Stichtag gilt immer ab 0:00 Uhr; ältere Spielstände mit Uhrzeit werden umgestellt */
 var sigBeforeMidnight=saved&&st.sig===[st.V0,st.s,st.r,st.i,st.stichtag,st.mode].join('|');
 st.stichtag=midnight(st.stichtag);
@@ -848,7 +858,12 @@ function render(t,animate){
   clockEls.forEach(function(c){c.z.textContent=eurAuto(zps*c.sec);c.g.textContent='mit Sparrate '+eurAuto((zps+sps)*c.sec)});
 
   // Kaufkraft-Karten
-  var yearZ=zinsFluss(t),earned=Math.max(0,v.Z); /* alle Zinsen seit Stichtag 0:00 Uhr */
+  /* Zinsen seit Stichtag 0:00 Uhr oder seit dem letzten Zurücksetzen (itemsFrom = Zeitpunkt im Zählwerk) */
+  var fromT=st.itemsFrom==null?0:tOf(st.itemsFrom),yearZ=zinsFluss(t),earned=Math.max(0,v.Z-(fromT>0?val(fromT).Z:0));
+  var since=st.itemsFrom==null?'seit dem Stichtag':'seit dem Zurücksetzen';
+  $('#items-from').textContent=st.itemsFrom==null?'Gezählt ab Stichtag, '+DF_DAY.format(new Date(st.stichtag))+', 0:00 Uhr · Zinsen '+eurAuto(earned)
+    :'Gezählt ab '+DF_FULL.format(new Date(st.itemsFrom))+' · Zinsen '+eurAuto(earned);
+  $('#b-items-stichtag').disabled=st.itemsFrom==null;
   ITEMS.forEach(function(it){
     var locked=yearZ<it.price;it.el.classList.toggle('locked',locked);
     var secs=zps>0?it.price/zps:Infinity;
@@ -858,7 +873,7 @@ function render(t,animate){
     if(secs<2)frac=1;
     var pctW=Math.min(100,Math.max(0,frac*100));
     it.bar.classList.toggle('jump',pctW<it.lastP||secs<2);it.bar.style.width=pctW.toFixed(2)+'%';it.lastP=pctW;
-    it.count.textContent=cnt>0?nf(0).format(cnt)+'× bezahlt seit dem Stichtag':'Noch '+eurAuto(it.price-earned)+' bis zum ersten';
+    it.count.textContent=cnt>0?nf(0).format(cnt)+'× bezahlt '+since:'Noch '+eurAuto(it.price-earned)+' bis zum ersten';
     if(animate&&it.lastN!=null&&cnt>it.lastN&&!reduceMotion.matches&&secs/(paused?1:speed)>3){it.el.classList.remove('pop');void it.el.offsetWidth;it.el.classList.add('pop')}
     it.lastN=cnt;
   });
@@ -900,6 +915,9 @@ $('#b-pause').addEventListener('click',function(){paused=!paused;syncButtons()})
 $('#b-now').addEventListener('click',function(){simOffset=0;speed=1;paused=false;syncButtons();prevV=null;tick()});
 $('#settings').addEventListener('toggle',function(){st.setOpen=$('#settings').open;writeStore()});
 $('#b-edit').addEventListener('click',function(){var d=$('#settings');d.open=true;d.scrollIntoView({behavior:reduceMotion.matches?'auto':'smooth',block:'start'});setTimeout(function(){F.v0.focus({preventScroll:true})},reduceMotion.matches?0:450)});
+function setItemsFrom(ms){st.itemsFrom=ms;writeStore();ITEMS.forEach(function(it){it.lastN=null;it.lastP=0});render(tNow(),false)}
+$('#b-items-reset').addEventListener('click',function(){setItemsFrom(simMs())});
+$('#b-items-stichtag').addEventListener('click',function(){setItemsFrom(null)});
 $('#welcome-x').addEventListener('click',function(){$('#welcome').hidden=true});
 
 function settingsChanged(resetSession){

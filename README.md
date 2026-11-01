@@ -36,7 +36,7 @@ Fan-Projekt ohne Verbindung zu den Rechteinhabern von *Dune*. Alle Figuren und T
 - Zeiträume: Zuwachs seit Beginn von Tag/Woche/Monat/Jahr, Hochrechnung bis zum Ende des Zeitraums und Rückblick auf die letzten 24 Std., 7 Tage, den letzten Monat und 12 Monate
 - Zeitraffer (1 Minute, 1 Stunde, 1 Tag, 1 Monat oder 1 Jahr pro Sekunde), Ansicht nominal oder als Kaufkraft heute (inflationsbereinigt)
 - Kassenstand: Zinsen, Einzahlungen, Netto nach vereinfachter Steuer, 4-%-Entnahme
-- Ertragsuhr (Zinsen pro Sekunde bis pro Jahr), Kaufkraft-Karten („alle 3 Std. 12 Min. ein Cappuccino“, Anzahl gezählt ab Stichtag 0:00 Uhr)
+- Ertragsuhr (Zinsen pro Sekunde bis pro Jahr), Kaufkraft-Karten („alle 3 Std. 12 Min. ein Cappuccino“, Anzahl gezählt ab Stichtag 0:00 Uhr oder ab einem selbst gesetzten Nullpunkt)
 - Tresor als Münzraster (Einzahlungen und Zinsen), Meilensteine mit Datumsprognose (große Marken plus kleine Zinsstufen, im ersten Jahr etwa zwei pro Monat), Prognosediagramm und Tabelle
 - Eingaben und erreichte Meilensteine bleiben im `localStorage` des Browsers; beim nächsten Öffnen zeigt die Seite den Zuwachs seit dem letzten Besuch
 
