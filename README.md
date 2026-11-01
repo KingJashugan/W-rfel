@@ -32,13 +32,17 @@ Fan-Projekt ohne Verbindung zu den Rechteinhabern von *Dune*. Alle Figuren und T
 
 [`vermoegen/index.html`](vermoegen/index.html) ist eine eigenständige Einzelseite, unabhängig vom Spielplan oben. Sie zeigt im Stil eines Incremental-Spiels, wie ein Vermögen bei durchschnittlich 6 % Rendite (einstellbar) im Sekundentakt wächst:
 
-- Zählwerk mit Rollziffern bis auf Hundertstel-Cent, jede Sekunde ein Takt mit „+x €“-Anzeige
+- Zählwerk mit Rollziffern bis auf Hundertstel-Cent, jede Sekunde ein Takt mit „+x €“-Anzeige; umschaltbar zwischen Gesamtvermögen und dem Zuwachs heute, diese Woche, diesen Monat oder dieses Jahr
+- Zeiträume: Zuwachs seit Beginn von Tag/Woche/Monat/Jahr, Hochrechnung bis zum Ende des Zeitraums und Rückblick auf die letzten 24 Std., 7 Tage, den letzten Monat und 12 Monate
 - Zeitraffer (1 Minute, 1 Stunde, 1 Tag, 1 Monat oder 1 Jahr pro Sekunde), Ansicht nominal oder als Kaufkraft heute (inflationsbereinigt)
 - Kassenstand: Zinsen, Einzahlungen, Netto nach vereinfachter Steuer, 4-%-Entnahme
 - Ertragsuhr (Zinsen pro Sekunde bis pro Jahr), Kaufkraft-Karten („alle 3 Std. 12 Min. ein Cappuccino“)
-- Tresor als Münzraster (Einzahlungen und Zinsen), Meilensteine mit Datumsprognose, Prognosediagramm und Tabelle
+- Tresor als Münzraster (Einzahlungen und Zinsen), Meilensteine mit Datumsprognose (große Marken plus kleine Zinsstufen, im ersten Jahr etwa zwei pro Monat), Prognosediagramm und Tabelle
 - Eingaben und erreichte Meilensteine bleiben im `localStorage` des Browsers; beim nächsten Öffnen zeigt die Seite den Zuwachs seit dem letzten Besuch
 
-**Nutzung:** Datei direkt im Browser öffnen. Kein Build, keine Abhängigkeiten. Nur die Schriften kommen von Google Fonts, ohne Netz greifen Systemschriften.
+**Online (GitHub Pages):** https://kingjashugan.github.io/W-rfel/vermoegen/
+Voraussetzung: In *Settings → Pages* ist unter *Build and deployment* die Quelle „Deploy from a branch“ mit dem Branch `ccr-0fd6f351-yoghm7` (oder später dem Hauptbranch) und dem Ordner `/ (root)` gewählt.
+
+**Lokal:** Datei direkt im Browser öffnen. Kein Build, keine Abhängigkeiten. Nur die Schriften kommen von Google Fonts, ohne Netz greifen Systemschriften.
 
 **Formel:** `V(t) = V₀·(1+r)^t + 12·s·((1+r)^t − 1)/ln(1+r)`: Rendite stetig verteilt, Sparrate als gleichmäßiger Zufluss.

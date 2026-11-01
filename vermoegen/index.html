@@ -82,7 +82,7 @@ a{color:var(--ink)}
 .cur{font-family:var(--f-display);font-size:clamp(1.6rem,5.4vw,3.4rem);line-height:1;margin-left:.2em;color:var(--brass)}
 .float{position:absolute;right:0;top:-.6em;display:inline-flex;gap:4px;align-items:center;font-family:var(--f-num);font-size:.85rem;color:var(--mint);white-space:nowrap;pointer-events:none;animation:rise 1.7s ease-out forwards}
 .float svg{width:16px;height:16px}
-@keyframes rise{0%{opacity:0;transform:translateY(10px)}15%{opacity:1}100%{opacity:0;transform:translateY(-38px)}}
+@keyframes rise{0%{opacity:0;transform:translateY(16px)}15%{opacity:1}100%{opacity:0;transform:translateY(-22px)}}
 
 .rate{font-family:var(--f-num);font-size:clamp(.95rem,2.2vw,1.15rem);color:var(--mint)}
 .rate-sub{font-size:.88rem;color:var(--soft);max-width:70ch}
@@ -165,6 +165,19 @@ section{display:grid;gap:14px;min-width:0}
 .ms li.done .stamp{border:1.5px solid var(--brass);background:var(--brass);color:var(--sheet)}
 .ms li.new .stamp{animation:pop .9s ease-out}
 .ms h3{font-family:var(--f-body);font-size:.92rem;font-weight:600}
+.ms li.big h3{font-family:var(--f-display);font-size:1.05rem}
+.ms li.small-ms .stamp{width:20px;height:20px;margin:4px 0 0 3px}
+.ms li.small-ms .stamp svg{width:12px;height:12px}
+.ms-sum{font-size:.85rem;color:var(--soft);font-variant-numeric:tabular-nums}
+.cert-inner > .seg{justify-self:start}
+.periods{grid-template-columns:repeat(4,minmax(0,1fr))}
+.pcard{all:unset;box-sizing:border-box;cursor:pointer;background:var(--sheet);color:var(--ink);padding:14px 16px;display:grid;gap:5px;align-content:start;min-width:0}
+.pcard:hover{background:var(--paper)}
+.pcard:focus-visible{outline:2px solid var(--brass);outline-offset:-2px}
+.pcard[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--brass)}
+.pcard .big{color:var(--mint)}
+.pcard .bar{display:block;margin-block:4px 2px}
+.pcard .small{display:block}
 .ms p{font-size:.82rem;color:var(--soft)}
 .ms .when{font-family:var(--f-num);font-size:.75rem;color:var(--ink);margin-top:2px}
 .ms li.done .when{color:var(--brass)}
@@ -206,7 +219,7 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
   .split{grid-template-columns:1fr}
 }
 @media (max-width:760px){
-  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tiles,.periods{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:600px){
   .items{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -242,6 +255,13 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
         <p class="label"><span class="led" id="led"></span><span id="h-title">Depotstand</span> · <span id="h-mode">nominal</span></p>
         <p class="asof" id="h-asof"></p>
       </div>
+      <div class="seg" role="group" aria-label="Was das Zählwerk zählt" id="counter">
+        <button type="button" data-c="total" aria-pressed="true">Gesamtvermögen</button>
+        <button type="button" data-c="day" aria-pressed="false">Heute</button>
+        <button type="button" data-c="week" aria-pressed="false">Diese Woche</button>
+        <button type="button" data-c="month" aria-pressed="false">Dieser Monat</button>
+        <button type="button" data-c="year" aria-pressed="false">Dieses Jahr</button>
+      </div>
       <div class="odo-row">
         <span class="odo-wrap" id="odo-wrap">
           <span class="odo" id="odo-main" aria-hidden="true"></span><span class="odo sub" id="odo-sub" aria-hidden="true" title="Bruchteile eines Cents"></span><span class="cur" aria-hidden="true">€</span>
@@ -251,6 +271,7 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
       <p class="rate" id="h-rate"></p>
       <p class="rate-sub" id="h-rate2"></p>
       <div class="chips">
+        <span class="chip" id="h-total" hidden></span>
         <span class="chip" id="h-session"></span>
         <span class="chip" id="h-tick"></span>
         <span class="chip warn" id="h-jump" hidden></span>
@@ -275,6 +296,11 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
         </div>
       </div>
     </div>
+  </section>
+
+  <section aria-labelledby="s-per">
+    <div class="sec-head"><h2 id="s-per">Zeiträume</h2><p>Was die Rendite für einen Tag, eine Woche, einen Monat und ein Jahr bedeutet. Antippen, damit das Zählwerk nur diesen Zeitraum hochzählt; noch einmal antippen zeigt wieder das Gesamtvermögen.</p></div>
+    <div class="ledger periods" id="periods"></div>
   </section>
 
   <section class="panel" aria-labelledby="s-set">
@@ -351,6 +377,7 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
     </section>
     <section aria-labelledby="s-ms">
       <div class="sec-head"><h2 id="s-ms">Meilensteine</h2></div>
+      <p class="ms-sum" id="ms-sum"></p>
       <ol class="ms" id="ms"></ol>
     </section>
   </div>
@@ -440,11 +467,12 @@ function readStore(){try{var raw=localStorage.getItem(LS_KEY);return raw?JSON.pa
 function writeStore(){try{localStorage.setItem(LS_KEY,JSON.stringify(st))}catch(e){}}
 var loadedAt=Date.now();
 var saved=readStore();
-function defaults(){return {V0:50000,s:500,r:6,i:2,tf:true,stichtag:Date.now(),mode:'nominal',unlocked:[],sig:'',lastSeen:null,example:true}}
+function defaults(){return {V0:50000,s:500,r:6,i:2,tf:true,stichtag:Date.now(),mode:'nominal',counter:'total',reached:0,sig:'',lastSeen:null,example:true}}
 var st=Object.assign(defaults(),saved||{});
 ['V0','s','r','i','stichtag'].forEach(function(k){if(typeof st[k]!=='number'||!isFinite(st[k]))st[k]=defaults()[k]});
-if(!Array.isArray(st.unlocked))st.unlocked=[];
+delete st.unlocked;
 if(st.mode!=='real')st.mode='nominal';
+if(['total','day','week','month','year'].indexOf(st.counter)<0)st.counter='total';
 
 /* ---------- Modell ---------- */
 var M;
@@ -489,13 +517,13 @@ function setOdo(el,str){
   }
   for(var k=0;k<str.length;k++){var col=el._cols[k];if(col)col.style.transform='translateY('+(-(+str[k]))+'em)'}
 }
-function renderOdo(V){
+function renderOdo(V,label){
   var main=nf(2).format(V);
   setOdo($('#odo-main'),main);
   var subEl=$('#odo-sub');
   if(Math.abs(V)<1e9){var sub=Math.floor(Math.abs(V)*1e6+1e-6)%10000;setOdo(subEl,String(sub).padStart(4,'0'));subEl.hidden=false}
   else subEl.hidden=true;
-  $('#odo-sr').textContent='Vermögen '+eur(V,2);
+  $('#odo-sr').textContent=(label||'Vermögen')+' '+eur(V,2);
 }
 function floatDelta(dv){
   if(reduceMotion.matches||!(dv>0))return;
@@ -552,7 +580,15 @@ function buildItems(){
 }
 
 /* ---------- Meilensteine ---------- */
-var MS=[];
+var MS=[],msIdx=-1,msWin='',msFirstYear=0;
+function crossZ(th){ /* Zinsen seit Stichtag steigen monoton, solange die effektive Rendite > 0 ist */
+  if(val(0).Z>=th)return 0;if(val(T_MAX).Z<th)return null;
+  var lo=0,hi=T_MAX;for(var n=0;n<48;n++){var m=(lo+hi)/2;if(val(m).Z>=th)hi=m;else lo=m}return hi;
+}
+function niceRound(x){var mag=Math.pow(10,Math.floor(Math.log10(x))),lead=x/mag,step=mag*(lead<5?0.1:0.25);return Math.round(x/step)*step}
+function eurNice(x){return eur(x,x<10&&Math.abs(x-Math.round(x))>1e-9?2:0)}
+function equiv(x){var best=null;ITEMS.forEach(function(it){if(it.price<=x)best=it});if(!best)return '';
+  return ' Das entspricht '+nf(0).format(Math.floor(x/best.price))+' × '+best.name+'.'}
 function crossT(pred){
   if(pred(0))return 0;
   for(var t=0.25;t<=T_MAX+1e-9;t+=0.25){
@@ -571,19 +607,77 @@ function buildMilestones(){
   if(s>0)L.push({id:'half',name:'Zinsen überholen Einzahlungen',desc:'Mehr als die Hälfte des Vermögens stammt aus Zinsen.',pred:function(t){var v=val(t);return v.Z>v.C}});
   L.push({id:'miete',name:'Zinsen zahlen die Miete',desc:'Monatliche Zinsen von mindestens 1.100 €, etwa eine Warmmiete.',pred:function(t){return zinsFluss(t)/12>=1100}});
   L.push({id:'fire',name:'Entnahme 2.500 € im Monat',desc:'Nach der 4-%-Regel trägt das Vermögen 2.500 € pro Monat.',pred:function(t){return val(t).V*0.04/12>=2500}});
-  L.forEach(function(m){m.tc=crossT(m.pred)});
+  L.forEach(function(m){m.big=true;m.tc=crossT(m.pred)});
+  /* Kleine Meilensteine: Zinsstand alle zwei Wochen, auf runde Beträge gerundet.
+     Im ersten Jahr ergibt das etwa zwei pro Monat, später werden sie seltener. */
+  if(kEff()>0){var last=1;
+    for(var n=1;n<=24*T_MAX;n++){var z=val(n/24).Z;if(!(z>1))continue;var th=niceRound(z);if(th<=last)continue;last=th;
+      L.push({id:'z'+th,small:true,th:th,name:'Zinsen: '+eurNice(th),desc:'Die Zinsen seit dem Stichtag erreichen '+eurNice(th)+'.'+equiv(th),tc:crossZ(th)})}
+  }
   L.sort(function(a,b){return (a.tc==null?1e9:a.tc)-(b.tc==null?1e9:b.tc)});
-  var box=$('#ms');box.innerHTML='';
   L.forEach(function(m){
-    var li=document.createElement('li');
+    var li=document.createElement('li');li.className=m.small?'small-ms':'big';
     li.innerHTML='<span class="stamp">'+CHECK+'</span><div><h3></h3><p></p><p class="when"></p></div>';
     li.querySelector('h3').textContent=m.name;li.querySelector('p').textContent=m.desc;
-    box.appendChild(li);m.li=li;m.when=li.querySelector('.when');
+    m.li=li;m.when=li.querySelector('.when');
   });
-  MS=L;
+  MS=L;msWin='';
+  msFirstYear=L.filter(function(m){return m.tc!=null&&m.tc>0&&m.tc<=1}).length;
 }
-function unlockedSet(){return new Set(st.unlocked)}
-function syncUnlockSilently(t){st.unlocked=MS.filter(function(m){return m.pred(t)}).map(function(m){return m.id});st.sig=sig();writeStore()}
+function reachedCount(t){var lo=0,hi=MS.length;while(lo<hi){var mid=(lo+hi)>>1,m=MS[mid];if(m.tc!=null&&m.tc<=t)lo=mid+1;else hi=mid}return lo}
+function syncReached(t){st.reached=reachedCount(t);msIdx=st.reached;st.sig=sig();writeStore()}
+function renderMilestones(t,animate){
+  var idx=reachedCount(t);
+  if(animate&&msIdx>=0&&idx>msIdx){var nw=MS.slice(msIdx,idx);
+    toast(nw.length===1?'Meilenstein erreicht: '+nw[0].name:nw.length+' Meilensteine erreicht, zuletzt: '+nw[nw.length-1].name);
+    nw.forEach(function(m){m.li.classList.add('new');setTimeout(function(){m.li.classList.remove('new')},1200)})}
+  var from=Math.max(0,idx-3),to=Math.min(MS.length,idx+6),key=from+'-'+to,box=$('#ms');
+  if(key!==msWin){box.innerHTML='';for(var i=from;i<to;i++)box.appendChild(MS[i].li);msWin=key}
+  var tt=Math.max(0,t);
+  for(var j=from;j<to;j++){var m=MS[j],done=j<idx;m.li.classList.toggle('done',done);
+    if(done)m.when.textContent=m.tc===0?'erreicht bereits am Stichtag':'erreicht am '+DF_DAY.format(dateAt(m.tc));
+    else m.when.textContent=m.tc==null?'nicht innerhalb von 100 Jahren':'voraussichtlich '+DF_DAY.format(dateAt(m.tc))+' · in '+dur((m.tc-tt)*S_Y)}
+  var next=MS[idx];
+  $('#ms-sum').textContent=nf(0).format(idx)+' von '+nf(0).format(MS.length)+' erreicht · '+
+    (next&&next.tc!=null?'nächster in '+dur((next.tc-tt)*S_Y):'keine weiteren innerhalb von 100 Jahren')+
+    ' · '+msFirstYear+' im ersten Jahr nach dem Stichtag';
+  if(idx!==msIdx){msIdx=idx;st.reached=idx;writeStore()}
+}
+
+/* ---------- Zeiträume ---------- */
+var PER={
+  day:{title:'Tag',name:'heute',since:'seit 0:00 Uhr',roll:'Letzte 24 Std.',rollMs:864e5,full:'Ganzer Tag',
+    start:function(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate())},end:function(s){return new Date(s.getFullYear(),s.getMonth(),s.getDate()+1)}},
+  week:{title:'Woche',name:'diese Woche',since:'seit Montag 0:00 Uhr',roll:'Letzte 7 Tage',rollMs:7*864e5,full:'Ganze Woche',
+    start:function(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate()-((d.getDay()+6)%7))},end:function(s){return new Date(s.getFullYear(),s.getMonth(),s.getDate()+7)}},
+  month:{title:'Monat',name:'diesen Monat',since:'seit dem Monatsersten',roll:'Letzter Monat',rollMs:MS_Y/12,full:'Ganzer Monat',
+    start:function(d){return new Date(d.getFullYear(),d.getMonth(),1)},end:function(s){return new Date(s.getFullYear(),s.getMonth()+1,1)}},
+  year:{title:'Jahr',name:'dieses Jahr',since:'seit 1. Januar',roll:'Letzte 12 Monate',rollMs:MS_Y,full:'Ganzes Jahr',
+    start:function(d){return new Date(d.getFullYear(),0,1)},end:function(s){return new Date(s.getFullYear()+1,0,1)}}
+};
+var PKEYS=['day','week','month','year'];
+function gainBetween(a,b){var x=val(tOf(a)),y=val(tOf(b));return {V:y.V-x.V,Z:y.Z-x.Z}}
+function periodStart(k,ms){return PER[k].start(new Date(ms)).getTime()}
+function buildPeriods(){
+  var box=$('#periods');box.innerHTML='';
+  PKEYS.forEach(function(k){var p=PER[k],b=document.createElement('button');
+    b.type='button';b.className='pcard';b.dataset.c=k;b.setAttribute('aria-pressed','false');
+    b.innerHTML='<span class="label">'+p.title+'</span><span class="big"></span><span class="small since"></span><span class="bar"><i></i></span><span class="small full"></span><span class="small roll"></span>';
+    box.appendChild(b);p.el=b;});
+}
+function renderPeriods(ms){
+  PKEYS.forEach(function(k){var p=PER[k],s=periodStart(k,ms),e=p.end(new Date(s)).getTime(),
+      g=gainBetween(s,ms),f=gainBetween(s,e),r=gainBetween(ms-p.rollMs,ms),el=p.el;
+    el.querySelector('.big').textContent='+'+eurAuto(g.V);
+    el.querySelector('.since').textContent=(s<st.stichtag?'seit dem Stichtag':p.since)+', davon Zinsen '+eurAuto(g.Z);
+    el.querySelector('.bar i').style.width=(Math.min(1,Math.max(0,(ms-s)/(e-s)))*100).toFixed(2)+'%';
+    el.querySelector('.full').textContent=p.full+': ≈ +'+eurAuto(f.V);
+    /* Liegt das Rückblick-Fenster vor dem Stichtag, wäre es fast leer: dann den gleichen Zeitraum ab jetzt zeigen */
+    if(ms-p.rollMs>=st.stichtag)el.querySelector('.roll').textContent=p.roll+': +'+eurAuto(r.V)+' (Zinsen '+eurAuto(r.Z)+')';
+    else{var nx=gainBetween(ms,ms+p.rollMs);el.querySelector('.roll').textContent=p.roll.replace('Letzte','Nächste').replace('Letzter','Nächster')+': ≈ +'+eurAuto(nx.V)+' (Zinsen '+eurAuto(nx.Z)+')'}
+  });
+}
+function setCounter(k){if(k!=='total'&&!PER[k])return;st.counter=k;writeStore();syncButtons();prevV=null;render(tNow(),false)}
 
 /* ---------- Farben aus den Tokens ---------- */
 var COL={};
@@ -697,11 +791,16 @@ function renderTable(t){
 /* ---------- Gesamtdarstellung ---------- */
 var prevV=null,sessT0=0;
 function render(t,animate){
-  var v=val(t),n=nom(t),zps=zinsFluss(t)/S_Y,sps=sparFluss(t)/S_Y;
-  renderOdo(v.V);
+  var v=val(t),n=nom(t),zps=zinsFluss(t)/S_Y,sps=sparFluss(t)/S_Y,sm=simMs();
+  var cm=PER[st.counter]?st.counter:'total';
+  if(cm==='total'){renderOdo(v.V,'Vermögen');$('#h-title').textContent='Depotstand';$('#h-total').hidden=true}
+  else{var p=PER[cm],g=gainBetween(periodStart(cm,sm),sm);renderOdo(g.V,'Zuwachs '+p.name);
+    $('#h-title').textContent='Zuwachs '+p.name+' · '+(periodStart(cm,sm)<st.stichtag?'seit dem Stichtag':p.since);
+    var tot=$('#h-total');tot.hidden=false;tot.innerHTML='Gesamt <span class="num">'+eur(v.V,2)+'</span>'}
   if(animate&&prevV!=null)floatDelta(v.V-prevV);
   var dv=prevV==null?0:v.V-prevV;prevV=v.V;
-  $('#h-asof').textContent='Stand '+DF_FULL.format(new Date(simMs()));
+  renderPeriods(sm);
+  $('#h-asof').textContent='Stand '+DF_FULL.format(new Date(sm));
   $('#h-mode').textContent=isReal()?'Kaufkraft von heute':'nominal';
   $('#h-rate').textContent='+'+eurAuto(zps+sps)+' pro Sekunde';
   $('#h-rate2').textContent='Davon '+eurAuto(zps)+' Zinsen und '+eurAuto(sps)+' Sparrate. Jede Sekunde arbeitet der Zinseszins auf dem neuen, etwas höheren Stand weiter.';
@@ -743,16 +842,7 @@ function render(t,animate){
     it.lastN=cnt;
   });
 
-  // Meilensteine
-  var un=unlockedSet(),changed=false;
-  MS.forEach(function(m){
-    var done=m.pred(t);m.li.classList.toggle('done',done);
-    if(done){m.when.textContent=m.tc===0?'erreicht bereits am Stichtag':'erreicht am '+DF_DAY.format(dateAt(m.tc==null?t:m.tc))}
-    else m.when.textContent=m.tc==null?'nicht innerhalb von 100 Jahren':'voraussichtlich '+DF_MON.format(dateAt(m.tc))+' · in '+dur((m.tc-Math.max(0,t))*S_Y);
-    if(done&&!un.has(m.id)){un.add(m.id);changed=true;
-      if(animate){toast('Meilenstein erreicht: '+m.name);m.li.classList.add('new');setTimeout(function(){m.li.classList.remove('new')},1200)}}
-  });
-  if(changed){st.unlocked=Array.from(un);writeStore()}
+  renderMilestones(t,animate);
 
   drawVault(t);drawChart(t);renderTable(t);
 }
@@ -774,6 +864,7 @@ function tick(){
 function syncButtons(){
   document.querySelectorAll('#speeds button').forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.speed===speed))});
   document.querySelectorAll('#modes button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.mode===st.mode))});
+  document.querySelectorAll('#counter button, #periods .pcard').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.c===st.counter))});
   $('#b-pause').textContent=paused?'Weiterlaufen':'Anhalten';
   $('#leg-other').textContent=isReal()?'– – nominal':'– – Kaufkraft heute';
   $('#proj-note').textContent=isReal()?'Werte in Kaufkraft vom Stichtag, Inflation '+nf(1).format(st.i)+' % p. a.':'Nominale Werte bei '+nf(1).format(st.r)+' % p. a. Zum Ablesen über das Diagramm fahren.';
@@ -781,6 +872,8 @@ function syncButtons(){
 }
 $('#speeds').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;speed=+b.dataset.speed;paused=false;syncButtons();tick()});
 $('#modes').addEventListener('click',function(e){var b=e.target.closest('button');if(!b||b.dataset.mode===st.mode)return;st.mode=b.dataset.mode;settingsChanged(false)});
+$('#counter').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setCounter(b.dataset.c)});
+$('#periods').addEventListener('click',function(e){var b=e.target.closest('.pcard');if(!b)return;setCounter(st.counter===b.dataset.c?'total':b.dataset.c)});
 $('#b-pause').addEventListener('click',function(){paused=!paused;syncButtons()});
 $('#b-now').addEventListener('click',function(){simOffset=0;speed=1;paused=false;syncButtons();prevV=null;tick()});
 $('#welcome-x').addEventListener('click',function(){$('#welcome').hidden=true});
@@ -788,7 +881,7 @@ $('#welcome-x').addEventListener('click',function(){$('#welcome').hidden=true});
 function settingsChanged(resetSession){
   buildModel();buildMilestones();
   var t=tNow();if(resetSession!==false)sessT0=Math.max(0,t);
-  syncUnlockSilently(t);prevV=null;vaultPrev={unit:0,cells:0};
+  syncReached(t);prevV=null;vaultPrev={unit:0,cells:0};
   ITEMS.forEach(function(it){it.lastN=null});
   syncButtons();writeStore();render(t,false);
 }
@@ -823,7 +916,7 @@ function onInput(e){if(e.target===F.rr){F.r.value=F.rr.value}else if(e.target===
 $('#form').addEventListener('input',onInput);
 $('#form').addEventListener('change',onInput);
 $('#form').addEventListener('submit',function(e){e.preventDefault();applyForm()});
-$('#b-reset').addEventListener('click',function(){var d=defaults();d.mode=st.mode;d.lastSeen=st.lastSeen;st=Object.assign(st,d);fillForm();settingsChanged(true)});
+$('#b-reset').addEventListener('click',function(){var d=defaults();d.mode=st.mode;d.counter=st.counter;d.lastSeen=st.lastSeen;st=Object.assign(st,d);fillForm();settingsChanged(true)});
 
 /* ---------- Diagramm-Hover ---------- */
 var chart=$('#chart');
@@ -843,18 +936,19 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)persi
 window.addEventListener('pagehide',persistSeen);
 
 /* ---------- Start ---------- */
-readColors();buildModel();buildClock();buildItems();buildMilestones();fillForm();syncButtons();
+readColors();buildModel();buildClock();buildItems();buildPeriods();buildMilestones();fillForm();syncButtons();
 var t0=tNow();sessT0=Math.max(0,t0);
 var sameSettings=saved&&st.sig===sig();
 if(saved&&sameSettings&&st.lastSeen&&loadedAt-st.lastSeen>60000){
   var t1=tOf(st.lastSeen),a=val(t1),b=val(t0);
   $('#welcome-text').textContent='Willkommen zurück. Seit deinem letzten Besuch vor '+dur((loadedAt-st.lastSeen)/1000)+' ist dein Vermögen um '+eurAuto(b.V-a.V)+' gewachsen, davon '+eurAuto(b.Z-a.Z)+' Zinsen.';
-  var un=unlockedSet(),newly=MS.filter(function(m){return m.pred(t0)&&!un.has(m.id)});
-  if(newly.length){var ul=$('#welcome-list');ul.hidden=false;newly.forEach(function(m){var li=document.createElement('li');li.textContent='Inzwischen erreicht: '+m.name;ul.appendChild(li)})}
+  var newly=MS.slice(Math.min(st.reached||0,MS.length),reachedCount(t0));
+  if(newly.length){var ul=$('#welcome-list');ul.hidden=false;
+    newly.slice(-5).forEach(function(m){var li=document.createElement('li');li.textContent='Inzwischen erreicht: '+m.name;ul.appendChild(li)});
+    if(newly.length>5){var li2=document.createElement('li');li2.textContent='und '+(newly.length-5)+' weitere Meilensteine';ul.appendChild(li2)}}
   $('#welcome').hidden=false;
 }
-if(sameSettings){var un2=unlockedSet();MS.forEach(function(m){if(m.pred(t0))un2.add(m.id)});st.unlocked=Array.from(un2)}
-else syncUnlockSilently(t0);
+syncReached(t0);
 st.lastSeen=loadedAt;writeStore();
 drawRosette();render(t0,false);
 setTimeout(function(){tick();setInterval(tick,1000)},1000-(Date.now()%1000));
