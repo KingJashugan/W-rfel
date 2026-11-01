@@ -332,7 +332,7 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
   </section>
 
   <section aria-labelledby="s-items">
-    <div class="sec-head"><h2 id="s-items">Was deine Zinsen bezahlen</h2><p>Nur aus Zinsen, ohne die Sparrate anzutasten. Gedimmte Karten schaltet erst ein größeres Vermögen frei. Preise sind Beispiele.</p></div>
+    <div class="sec-head"><h2 id="s-items">Was deine Zinsen bezahlen</h2><p>Alle Zinsen seit dem Stichtag (0:00 Uhr), ohne die Sparrate anzutasten: So oft hättest du dir das schon leisten können. Gedimmte Karten schaltet erst ein größeres Vermögen frei. Preise sind Beispiele.</p></div>
     <div class="items" id="items"></div>
   </section>
 
@@ -848,7 +848,7 @@ function render(t,animate){
   clockEls.forEach(function(c){c.z.textContent=eurAuto(zps*c.sec);c.g.textContent='mit Sparrate '+eurAuto((zps+sps)*c.sec)});
 
   // Kaufkraft-Karten
-  var yearZ=zinsFluss(t),earned=Math.max(0,sz);
+  var yearZ=zinsFluss(t),earned=Math.max(0,v.Z); /* alle Zinsen seit Stichtag 0:00 Uhr */
   ITEMS.forEach(function(it){
     var locked=yearZ<it.price;it.el.classList.toggle('locked',locked);
     var secs=zps>0?it.price/zps:Infinity;
@@ -858,7 +858,7 @@ function render(t,animate){
     if(secs<2)frac=1;
     var pctW=Math.min(100,Math.max(0,frac*100));
     it.bar.classList.toggle('jump',pctW<it.lastP||secs<2);it.bar.style.width=pctW.toFixed(2)+'%';it.lastP=pctW;
-    it.count.textContent=cnt>0?nf(0).format(cnt)+'× bezahlt seit dem Öffnen':(locked?'':'Noch '+eurAuto(it.price-earned)+' bis zum ersten');
+    it.count.textContent=cnt>0?nf(0).format(cnt)+'× bezahlt seit dem Stichtag':'Noch '+eurAuto(it.price-earned)+' bis zum ersten';
     if(animate&&it.lastN!=null&&cnt>it.lastN&&!reduceMotion.matches&&secs/(paused?1:speed)>3){it.el.classList.remove('pop');void it.el.offsetWidth;it.el.classList.add('pop')}
     it.lastN=cnt;
   });
