@@ -317,7 +317,7 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
       <div class="field">
         <label for="f-date">Stichtag</label>
         <input type="date" id="f-date">
-        <small id="e-date">Ab hier läuft die Verzinsung</small>
+        <small id="e-date">Verzinsung ab 0:00 Uhr dieses Tages</small>
       </div>
       <div class="field">
         <label for="f-s">Sparrate pro Monat (€)</label>
@@ -406,7 +406,7 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
     <h2 id="s-notes">Annahmen und Grenzen</h2>
     <p class="formula">V(t) = V₀ · (1 + r)<sup>t</sup> + 12 · s · ((1 + r)<sup>t</sup> − 1) / ln(1 + r)</p>
     <ul>
-      <li><strong>Rechenweise.</strong> Die Rendite r wird als effektiver Jahreszins stetig verteilt, damit jede Sekunde einen Zuwachs bekommt. Die Sparrate s fließt rechnerisch gleichmäßig zu statt einmal im Monat. Gegenüber monatlicher Einzahlung ist das eine kleine Glättung, keine andere Rendite.</li>
+      <li><strong>Rechenweise.</strong> Die Rendite r wird als effektiver Jahreszins stetig verteilt, damit jede Sekunde einen Zuwachs bekommt. Gerechnet wird ab 0:00 Uhr des Stichtags, unabhängig davon, wann du ihn einträgst. Die Sparrate s fließt rechnerisch gleichmäßig zu statt einmal im Monat. Gegenüber monatlicher Einzahlung ist das eine kleine Glättung, keine andere Rendite.</li>
       <li><strong>6 % sind ein Durchschnitt, kein Versprechen.</strong> Echte Kurse schwanken stark, einzelne Jahre liegen bei −40 % oder +30 %. Der Wert ist als geometrisches Mittel (CAGR) gemeint. Das arithmetische Mittel einzelner Jahresrenditen liegt bei schwankenden Anlagen immer darüber.</li>
       <li><strong>Reihenfolge der Renditen.</strong> Mit Sparrate oder Entnahmen hängt das Endergebnis davon ab, wann gute und schlechte Jahre kommen. Die Linie hier kennt dieses Risiko nicht.</li>
       <li><strong>Kosten.</strong> Fondskosten (TER), Depotgebühren und Spreads sollten in der eingetragenen Rendite schon abgezogen sein.</li>
@@ -467,10 +467,14 @@ function readStore(){try{var raw=localStorage.getItem(LS_KEY);return raw?JSON.pa
 function writeStore(){try{localStorage.setItem(LS_KEY,JSON.stringify(st))}catch(e){}}
 var loadedAt=Date.now();
 var saved=readStore();
-function defaults(){return {V0:50000,s:500,r:6,i:2,tf:true,stichtag:Date.now(),mode:'nominal',counter:'total',reached:0,sig:'',lastSeen:null,example:true}}
+function midnight(ms){var d=new Date(ms);return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()}
+function defaults(){return {V0:50000,s:500,r:6,i:2,tf:true,stichtag:midnight(Date.now()),mode:'nominal',counter:'total',reached:0,sig:'',lastSeen:null,example:true}}
 var st=Object.assign(defaults(),saved||{});
 ['V0','s','r','i','stichtag'].forEach(function(k){if(typeof st[k]!=='number'||!isFinite(st[k]))st[k]=defaults()[k]});
 delete st.unlocked;
+/* Stichtag gilt immer ab 0:00 Uhr; ältere Spielstände mit Uhrzeit werden umgestellt */
+var sigBeforeMidnight=saved&&st.sig===[st.V0,st.s,st.r,st.i,st.stichtag,st.mode].join('|');
+st.stichtag=midnight(st.stichtag);
 if(st.mode!=='real')st.mode='nominal';
 if(['total','day','week','month','year'].indexOf(st.counter)<0)st.counter='total';
 
@@ -892,7 +896,7 @@ function isoDate(ms){var d=new Date(ms);return d.getFullYear()+'-'+String(d.getM
 function fillForm(){F.v0.value=st.V0;F.s.value=st.s;F.r.value=st.r;F.rr.value=Math.min(12,Math.max(0,st.r));F.i.value=st.i;F.date.value=isoDate(st.stichtag);F.tf.checked=!!st.tf;$('#example-chip').hidden=!st.example}
 function num(inp){var x=parseFloat(String(inp.value).replace(',','.'));return isFinite(x)?x:NaN}
 function check(inp,errEl,ok,msg,hint){inp.setAttribute('aria-invalid',String(!ok));errEl.textContent=ok?hint:msg;errEl.classList.toggle('err',!ok);return ok}
-var HINT={v0:'Startwert der Rechnung',s:'0, wenn du nichts nachschießt',r:'Durchschnitt nach Kosten',i:'Für die Ansicht „Kaufkraft heute“',date:'Ab hier läuft die Verzinsung'};
+var HINT={v0:'Startwert der Rechnung',s:'0, wenn du nichts nachschießt',r:'Durchschnitt nach Kosten',i:'Für die Ansicht „Kaufkraft heute“',date:'Verzinsung ab 0:00 Uhr dieses Tages'};
 var debounceId=null;
 function applyForm(){
   var v0=num(F.v0),s=num(F.s),r=num(F.r),i=num(F.i),ok=true;
@@ -905,7 +909,7 @@ function applyForm(){
   var dOk=dateMs!=null&&Math.abs(dateMs-Date.now())<150*MS_Y;
   ok=check(F.date,$('#e-date'),dOk,'Bitte ein gültiges Datum eingeben.',HINT.date)&&ok;
   if(!ok)return;
-  var newStich=isoDate(dateMs)===isoDate(st.stichtag)?st.stichtag:dateMs;
+  var newStich=dateMs; /* immer 0:00 Uhr des gewählten Tages */
   var changed=v0!==st.V0||s!==st.s||r!==st.r||i!==st.i||newStich!==st.stichtag||F.tf.checked!==st.tf;
   if(!changed)return;
   st.V0=v0;st.s=s;st.r=r;st.i=i;st.stichtag=newStich;st.tf=F.tf.checked;st.example=false;$('#example-chip').hidden=true;
@@ -938,6 +942,7 @@ window.addEventListener('pagehide',persistSeen);
 /* ---------- Start ---------- */
 readColors();buildModel();buildClock();buildItems();buildPeriods();buildMilestones();fillForm();syncButtons();
 var t0=tNow();sessT0=Math.max(0,t0);
+if(sigBeforeMidnight)st.sig=sig();
 var sameSettings=saved&&st.sig===sig();
 if(saved&&sameSettings&&st.lastSeen&&loadedAt-st.lastSeen>60000){
   var t1=tOf(st.lastSeen),a=val(t1),b=val(t0);
