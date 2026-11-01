@@ -25,3 +25,20 @@ Das Spiel rechnet Fortschritt auch im Hintergrund-Tab und bei geschlossenem Brow
 ## Hinweis
 
 Fan-Projekt ohne Verbindung zu den Rechteinhabern von *Dune*. Alle Figuren und Texte sind eigene Schöpfungen; Setting-Begriffe laufen über eine austauschbare Namensschicht (siehe [02-story.md](docs/02-story.md#1-rechtlicher-rahmen-und-kanon-nähe)).
+
+---
+
+## Nebenprojekt: Zinseszins-Zählwerk
+
+[`vermoegen/index.html`](vermoegen/index.html) ist eine eigenständige Einzelseite, unabhängig vom Spielplan oben. Sie zeigt im Stil eines Incremental-Spiels, wie ein Vermögen bei durchschnittlich 6 % Rendite (einstellbar) im Sekundentakt wächst:
+
+- Zählwerk mit Rollziffern bis auf Hundertstel-Cent, jede Sekunde ein Takt mit „+x €“-Anzeige
+- Zeitraffer (1 Minute, 1 Stunde, 1 Tag, 1 Monat oder 1 Jahr pro Sekunde), Ansicht nominal oder als Kaufkraft heute (inflationsbereinigt)
+- Kassenstand: Zinsen, Einzahlungen, Netto nach vereinfachter Steuer, 4-%-Entnahme
+- Ertragsuhr (Zinsen pro Sekunde bis pro Jahr), Kaufkraft-Karten („alle 3 Std. 12 Min. ein Cappuccino“)
+- Tresor als Münzraster (Einzahlungen und Zinsen), Meilensteine mit Datumsprognose, Prognosediagramm und Tabelle
+- Eingaben und erreichte Meilensteine bleiben im `localStorage` des Browsers; beim nächsten Öffnen zeigt die Seite den Zuwachs seit dem letzten Besuch
+
+**Nutzung:** Datei direkt im Browser öffnen. Kein Build, keine Abhängigkeiten. Nur die Schriften kommen von Google Fonts, ohne Netz greifen Systemschriften.
+
+**Formel:** `V(t) = V₀·(1+r)^t + 12·s·((1+r)^t − 1)/ln(1+r)`: Rendite stetig verteilt, Sparrate als gleichmäßiger Zufluss.

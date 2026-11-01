@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zinseszins-Zählwerk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Zeigt im Sekundentakt, wie ein Vermögen bei durchschnittlich 6 % Rendite per Zinseszins wächst.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Instrument+Sans:wght@400;500;600&family=Martian+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Wertpapier-Urkunde mit Zählwerk oben, darunter Eingaben und ein Kassenbuch-Raster (Kennzahlen, Ertragsuhr, Kaufkraft-Karten, Tresor, Meilensteine, Prognose) */
+:root{
+  --paper:#edf1ea;     /* Grund: grünstichiges Wertpapierpapier */
+  --sheet:#f8faf5;     /* Flächen */
+  --ink:#1c3a2b;       /* Stichtiefdruck-Grün */
+  --soft:#557063;      /* Sekundärtext, Einzahlungen */
+  --rule:#cdd7ca;      /* Linien */
+  --brass:#946417;     /* Zinsen, Akzent */
+  --mint:#23825a;      /* Zuwachs */
+  --warn:#a8462e;
+  --f-display:"Bodoni Moda","Bodoni 72","Didot",Georgia,serif;
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-num:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0d1712; --sheet:#14221b; --ink:#e2ebe1; --soft:#9db2a5; --rule:#283a30;
+    --brass:#d8aa4e; --mint:#5bc794; --warn:#ee8b70; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0d1712; --sheet:#14221b; --ink:#e2ebe1; --soft:#9db2a5; --rule:#283a30;
+  --brass:#d8aa4e; --mint:#5bc794; --warn:#ee8b70; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 64px;display:grid;gap:36px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;text-wrap:balance;margin:0;line-height:1.15}
+h2{font-size:clamp(1.35rem,3vw,1.7rem)}
+p{margin:0}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--soft);font-weight:600}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+a{color:var(--ink)}
+
+/* Kopf */
+.top{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 18px;border-bottom:1px solid var(--rule);padding-bottom:12px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:clamp(1.4rem,3.4vw,1.9rem);letter-spacing:.005em}
+.brand em{font-style:italic;font-weight:500;color:var(--brass)}
+
+/* Willkommen zurück */
+.welcome{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;border:1px solid var(--brass);background:var(--sheet);padding:14px 16px}
+.welcome p{max-width:75ch}
+.welcome ul{margin:6px 0 0;padding-left:18px}
+
+/* Urkunde */
+.cert{position:relative;background:var(--sheet);border:1px solid var(--ink);padding:6px;overflow:hidden}
+.cert-inner{position:relative;border:1px solid var(--brass);padding:clamp(18px,4vw,38px);display:grid;gap:16px}
+#rosette{position:absolute;right:-170px;top:50%;width:560px;height:560px;transform:translateY(-50%);pointer-events:none;transition:transform 1s linear}
+.cert-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;align-items:baseline}
+.asof{font-family:var(--f-num);font-size:.8rem;color:var(--soft)}
+.led{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mint);margin-right:6px;vertical-align:1px;opacity:.35}
+.led.on{animation:blink .9s ease-out}
+@keyframes blink{0%{opacity:1;box-shadow:0 0 0 0 var(--mint)}100%{opacity:.35;box-shadow:0 0 0 6px transparent}}
+
+.odo-row{display:flex;flex-wrap:wrap;align-items:flex-end}
+.odo-wrap{position:relative;display:inline-flex;align-items:flex-end;flex-wrap:wrap;max-width:100%}
+.odo{display:inline-flex;font-family:var(--f-num);font-weight:500;line-height:1;font-size:clamp(1.9rem,7.4vw,4.7rem);letter-spacing:-.03em;color:var(--ink)}
+.odo .d{display:inline-block;height:1em;overflow:hidden}
+.odo .col{display:block}
+.odo.ready .col{transition:transform .6s cubic-bezier(.2,.9,.25,1)}
+.odo .col span{display:block;height:1em;line-height:1em;text-align:center}
+.odo .sep{display:inline-block;height:1em;line-height:1em}
+.odo.sub{font-size:clamp(.95rem,2.7vw,1.65rem);color:var(--brass);margin-left:.15em;margin-bottom:.12em;letter-spacing:0}
+.cur{font-family:var(--f-display);font-size:clamp(1.6rem,5.4vw,3.4rem);line-height:1;margin-left:.2em;color:var(--brass)}
+.float{position:absolute;right:0;top:-.6em;display:inline-flex;gap:4px;align-items:center;font-family:var(--f-num);font-size:.85rem;color:var(--mint);white-space:nowrap;pointer-events:none;animation:rise 1.7s ease-out forwards}
+.float svg{width:16px;height:16px}
+@keyframes rise{0%{opacity:0;transform:translateY(10px)}15%{opacity:1}100%{opacity:0;transform:translateY(-38px)}}
+
+.rate{font-family:var(--f-num);font-size:clamp(.95rem,2.2vw,1.15rem);color:var(--mint)}
+.rate-sub{font-size:.88rem;color:var(--soft);max-width:70ch}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;border:1px solid var(--rule);background:var(--paper);padding:3px 10px;border-radius:999px;color:var(--ink)}
+.chip.warn{border-color:var(--brass);color:var(--brass)}
+.chip .num{font-size:.78rem}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding-top:6px;border-top:1px dashed var(--rule)}
+.seg{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border:1px solid var(--rule);border-radius:10px;background:var(--paper)}
+.seg button{border:0;background:transparent;padding:6px 11px;border-radius:7px;cursor:pointer;font-size:.82rem}
+.seg button:hover{background:var(--sheet)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--sheet)}
+.btn{border:1px solid var(--ink);background:transparent;padding:6px 13px;border-radius:8px;cursor:pointer;font-size:.82rem}
+.btn:hover{background:var(--ink);color:var(--sheet)}
+.btn.quiet{border-color:var(--rule)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Abschnitte */
+section{display:grid;gap:14px;min-width:0}
+.sec-head{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
+.sec-head p{color:var(--soft);font-size:.9rem;max-width:70ch}
+
+/* Eingaben */
+.panel{background:var(--sheet);border:1px solid var(--rule);padding:clamp(16px,3vw,24px)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px 18px;align-items:start}
+.field{display:grid;gap:5px;min-width:0}
+.field label{font-size:.8rem;font-weight:600}
+.field input[type=number],.field input[type=date]{width:100%;font-family:var(--f-num);font-size:.92rem;background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:8px 10px}
+.field input[aria-invalid="true"]{border-color:var(--warn)}
+.field small{font-size:.75rem;color:var(--soft)}
+.field small.err{color:var(--warn)}
+.field input[type=range]{width:100%;accent-color:var(--brass)}
+.check{display:flex;gap:8px;align-items:center;font-size:.85rem;padding-top:22px}
+.check input{accent-color:var(--brass);width:16px;height:16px}
+
+/* Kassenbuch-Raster */
+.ledger{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.ledger > div{background:var(--sheet);padding:14px 16px;display:grid;gap:4px;align-content:start;min-width:0}
+.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+.clock{grid-template-columns:repeat(6,minmax(0,1fr))}
+.big{font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:clamp(1.05rem,2.2vw,1.4rem);font-weight:500;overflow-wrap:anywhere}
+.small{font-size:.8rem;color:var(--soft)}
+.clock .big{font-size:clamp(.95rem,1.8vw,1.15rem);color:var(--brass)}
+.clock .small{font-family:var(--f-num);font-size:.74rem}
+
+/* Kaufkraft-Karten */
+.items{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.item{background:var(--sheet);border:1px solid var(--rule);padding:14px;display:grid;gap:8px;align-content:start;min-width:0;position:relative}
+.item-top{display:flex;gap:10px;align-items:center}
+.ico{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--brass);color:var(--brass)}
+.ico svg{width:22px;height:22px}
+.item h3{font-family:var(--f-body);font-size:.92rem;font-weight:600;line-height:1.25;hyphens:auto;overflow-wrap:anywhere}
+.item-top > div{min-width:0}
+.item .price{font-family:var(--f-num);font-size:.75rem;color:var(--soft)}
+.item .every{font-size:.85rem}
+.bar{height:6px;background:var(--rule);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--brass);transition:width .95s linear}
+.bar i.jump{transition:none}
+.item .count{font-family:var(--f-num);font-size:.75rem;color:var(--soft)}
+.item.locked .ico{border-style:dashed;color:var(--soft);border-color:var(--soft)}
+.item.locked h3,.item.locked .every{color:var(--soft)}
+.item.pop{animation:pop .7s ease-out}
+@keyframes pop{0%{box-shadow:0 0 0 0 var(--brass)}100%{box-shadow:0 0 0 10px transparent}}
+
+/* Tresor + Meilensteine */
+.split{display:grid;grid-template-columns:1.05fr .95fr;gap:36px;align-items:start}
+.vault-box{background:var(--sheet);border:1px solid var(--rule);padding:16px;display:grid;gap:12px}
+#vault{display:block;width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--soft)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot.c{background:var(--soft)}
+.dot.z{background:var(--brass)}
+.dot.n{background:var(--mint)}
+.ms{list-style:none;margin:0;padding:0;display:grid;border-top:1px solid var(--rule)}
+.ms li{display:grid;grid-template-columns:30px 1fr;gap:4px 12px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.stamp{width:26px;height:26px;border-radius:50%;border:1.5px dashed var(--soft);display:grid;place-items:center;color:transparent;margin-top:2px}
+.stamp svg{width:15px;height:15px}
+.ms li.done .stamp{border:1.5px solid var(--brass);background:var(--brass);color:var(--sheet)}
+.ms li.new .stamp{animation:pop .9s ease-out}
+.ms h3{font-family:var(--f-body);font-size:.92rem;font-weight:600}
+.ms p{font-size:.82rem;color:var(--soft)}
+.ms .when{font-family:var(--f-num);font-size:.75rem;color:var(--ink);margin-top:2px}
+.ms li.done .when{color:var(--brass)}
+
+/* Prognose */
+.chart-box{position:relative;background:var(--sheet);border:1px solid var(--rule);padding:14px 14px 8px}
+#chart{display:block;width:100%;height:320px;touch-action:pan-y}
+.tip{position:absolute;top:18px;left:0;pointer-events:none;background:var(--ink);color:var(--sheet);font-size:.78rem;padding:8px 10px;border-radius:6px;display:grid;gap:2px;min-width:180px}
+.tip b{font-family:var(--f-display);font-size:.95rem}
+.tip .num{font-size:.74rem}
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);background:var(--sheet)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:.85rem}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--rule);white-space:nowrap}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--soft);font-weight:600;background:var(--paper)}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:.8rem}
+tr.now td{background:var(--paper);color:var(--brass)}
+tbody tr:last-child td{border-bottom:0}
+
+/* Annahmen */
+.notes{max-width:72ch}
+.notes ul{margin:0;padding-left:18px;display:grid;gap:8px}
+.notes code{font-family:var(--f-num);font-size:.8rem;background:var(--sheet);padding:1px 5px;border:1px solid var(--rule);border-radius:4px}
+.formula{font-family:var(--f-num);font-size:.85rem;background:var(--sheet);border:1px solid var(--rule);padding:12px 14px;overflow-x:auto;white-space:nowrap}
+footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);padding-top:12px}
+
+/* Hinweise */
+#toasts{position:fixed;right:0;bottom:0;z-index:20;display:grid;gap:8px;justify-items:end;pointer-events:none;padding-right:max(16px,calc(env(safe-area-inset-right,0px) + 16px));padding-bottom:calc(env(safe-area-inset-bottom,0px) + 16px);padding-left:16px}
+.toast{display:flex;gap:10px;align-items:center;background:var(--ink);color:var(--sheet);padding:10px 14px;border-radius:8px;font-size:.85rem;max-width:min(360px,calc(100vw - 32px));animation:slide .35s ease-out;transition:opacity .4s}
+.toast svg{width:20px;height:20px;flex:none;color:var(--brass)}
+.toast.out{opacity:0}
+@keyframes slide{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+@media (max-width:900px){
+  .items{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .clock{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .split{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:600px){
+  .items{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .clock{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #chart{height:250px}
+  #rosette{right:-260px;opacity:.7}
+  .item{padding:12px}
+  .ico{width:34px;height:34px}
+}
+@media (prefers-reduced-motion: reduce){
+  .odo.ready .col,.bar i,#rosette{transition:none}
+  .float{display:none}
+  .led.on,.item.pop,.ms li.new .stamp,.toast{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <p class="brand">Zinseszins-<em>Zählwerk</em></p>
+    <p class="label">Ø <span id="hdr-rate">6,0 %</span> Rendite p. a. · Takt 1 Sekunde</p>
+  </header>
+
+  <div id="welcome" class="welcome" role="status" hidden>
+    <div><p id="welcome-text"></p><ul id="welcome-list" hidden></ul></div>
+    <button class="btn quiet" id="welcome-x" type="button">Schließen</button>
+  </div>
+
+  <section class="cert" aria-labelledby="h-title">
+    <canvas id="rosette" aria-hidden="true"></canvas>
+    <div class="cert-inner">
+      <div class="cert-head">
+        <p class="label"><span class="led" id="led"></span><span id="h-title">Depotstand</span> · <span id="h-mode">nominal</span></p>
+        <p class="asof" id="h-asof"></p>
+      </div>
+      <div class="odo-row">
+        <span class="odo-wrap" id="odo-wrap">
+          <span class="odo" id="odo-main" aria-hidden="true"></span><span class="odo sub" id="odo-sub" aria-hidden="true" title="Bruchteile eines Cents"></span><span class="cur" aria-hidden="true">€</span>
+        </span>
+        <span class="sr" id="odo-sr"></span>
+      </div>
+      <p class="rate" id="h-rate"></p>
+      <p class="rate-sub" id="h-rate2"></p>
+      <div class="chips">
+        <span class="chip" id="h-session"></span>
+        <span class="chip" id="h-tick"></span>
+        <span class="chip warn" id="h-jump" hidden></span>
+        <span class="chip warn" id="h-future" hidden></span>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Zeitraffer" id="speeds">
+          <button type="button" data-speed="1" aria-pressed="true">Echtzeit</button>
+          <button type="button" data-speed="60" aria-pressed="false">1 Min./s</button>
+          <button type="button" data-speed="3600" aria-pressed="false">1 Std./s</button>
+          <button type="button" data-speed="86400" aria-pressed="false">1 Tag/s</button>
+          <button type="button" data-speed="2629800" aria-pressed="false">1 Monat/s</button>
+          <button type="button" data-speed="31557600" aria-pressed="false">1 Jahr/s</button>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn" id="b-pause">Anhalten</button>
+          <button type="button" class="btn" id="b-now">Zurück zur Gegenwart</button>
+        </div>
+        <div class="seg" role="group" aria-label="Darstellung" id="modes">
+          <button type="button" data-mode="nominal" aria-pressed="true">Nominal</button>
+          <button type="button" data-mode="real" aria-pressed="false">Kaufkraft heute</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="s-set">
+    <div class="sec-head">
+      <h2 id="s-set">Deine Zahlen</h2>
+      <span class="chip warn" id="example-chip">Beispielwerte – trage deine eigenen ein</span>
+    </div>
+    <form id="form" class="form" novalidate>
+      <div class="field">
+        <label for="f-v0">Vermögen am Stichtag (€)</label>
+        <input type="number" id="f-v0" inputmode="decimal" min="0" step="100">
+        <small id="e-v0">Startwert der Rechnung</small>
+      </div>
+      <div class="field">
+        <label for="f-date">Stichtag</label>
+        <input type="date" id="f-date">
+        <small id="e-date">Ab hier läuft die Verzinsung</small>
+      </div>
+      <div class="field">
+        <label for="f-s">Sparrate pro Monat (€)</label>
+        <input type="number" id="f-s" inputmode="decimal" min="0" step="25">
+        <small id="e-s">0, wenn du nichts nachschießt</small>
+      </div>
+      <div class="field">
+        <label for="f-r">Rendite p. a. (%)</label>
+        <input type="number" id="f-r" inputmode="decimal" step="0.1" min="-10" max="20">
+        <input type="range" id="f-rr" min="0" max="12" step="0.1" aria-label="Rendite per Schieberegler">
+        <small id="e-r">Durchschnitt nach Kosten</small>
+      </div>
+      <div class="field">
+        <label for="f-i">Inflation p. a. (%)</label>
+        <input type="number" id="f-i" inputmode="decimal" step="0.1" min="-5" max="15">
+        <small id="e-i">Für die Ansicht „Kaufkraft heute“</small>
+      </div>
+      <div class="field">
+        <label class="check" for="f-tf"><input type="checkbox" id="f-tf"> Aktienfonds (30 % Teilfreistellung)</label>
+        <button type="button" class="btn quiet" id="b-reset">Beispielwerte laden</button>
+      </div>
+    </form>
+  </section>
+
+  <section aria-labelledby="s-kpi">
+    <div class="sec-head"><h2 id="s-kpi">Kassenstand</h2><p>Alles bezogen auf den Zeitpunkt im Zählwerk.</p></div>
+    <div class="ledger tiles">
+      <div><span class="label">Zinsen seit Stichtag</span><span class="big" id="k-z"></span><span class="small" id="k-z2"></span></div>
+      <div><span class="label">Selbst eingezahlt</span><span class="big" id="k-c"></span><span class="small" id="k-c2"></span></div>
+      <div><span class="label">Netto bei Verkauf</span><span class="big" id="k-n"></span><span class="small" id="k-n2"></span></div>
+      <div><span class="label">4-%-Entnahme</span><span class="big" id="k-w"></span><span class="small">pro Monat, Faustregel</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-clock">
+    <div class="sec-head"><h2 id="s-clock">Ertragsuhr</h2><p>Was das Vermögen gerade an Zinsen abwirft. Die kleine Zeile enthält zusätzlich die Sparrate.</p></div>
+    <div class="ledger clock" id="clock"></div>
+  </section>
+
+  <section aria-labelledby="s-items">
+    <div class="sec-head"><h2 id="s-items">Was deine Zinsen bezahlen</h2><p>Nur aus Zinsen, ohne die Sparrate anzutasten. Gedimmte Karten schaltet erst ein größeres Vermögen frei. Preise sind Beispiele.</p></div>
+    <div class="items" id="items"></div>
+  </section>
+
+  <div class="split">
+    <section aria-labelledby="s-vault">
+      <div class="sec-head"><h2 id="s-vault">Tresor</h2></div>
+      <div class="vault-box">
+        <canvas id="vault" aria-label="Münzdarstellung des Vermögens" role="img"></canvas>
+        <div class="legend">
+          <span><i class="dot c"></i>Einzahlungen</span>
+          <span><i class="dot z"></i>Zinsen</span>
+          <span><i class="dot n"></i>neu in diesem Takt</span>
+        </div>
+        <p class="small" id="vault-cap"></p>
+      </div>
+    </section>
+    <section aria-labelledby="s-ms">
+      <div class="sec-head"><h2 id="s-ms">Meilensteine</h2></div>
+      <ol class="ms" id="ms"></ol>
+    </section>
+  </div>
+
+  <section aria-labelledby="s-proj">
+    <div class="sec-head"><h2 id="s-proj">Prognose</h2><p id="proj-note"></p></div>
+    <div class="chart-box">
+      <canvas id="chart" aria-label="Diagramm der Vermögensentwicklung" role="img"></canvas>
+      <div class="tip" id="tip" hidden></div>
+      <div class="legend" id="chart-legend">
+        <span><i class="dot c"></i>Einzahlungen</span>
+        <span><i class="dot z"></i>Zinsen</span>
+        <span id="leg-other">– – Kaufkraft heute</span>
+        <span>● aktueller Zeitpunkt</span>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Nach</th><th>Datum</th><th>Vermögen</th><th>Einzahlungen</th><th>Zinsen</th><th>Zinsanteil</th><th>Kaufkraft heute</th><th>Zinsen/Monat</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="notes" aria-labelledby="s-notes">
+    <h2 id="s-notes">Annahmen und Grenzen</h2>
+    <p class="formula">V(t) = V₀ · (1 + r)<sup>t</sup> + 12 · s · ((1 + r)<sup>t</sup> − 1) / ln(1 + r)</p>
+    <ul>
+      <li><strong>Rechenweise.</strong> Die Rendite r wird als effektiver Jahreszins stetig verteilt, damit jede Sekunde einen Zuwachs bekommt. Die Sparrate s fließt rechnerisch gleichmäßig zu statt einmal im Monat. Gegenüber monatlicher Einzahlung ist das eine kleine Glättung, keine andere Rendite.</li>
+      <li><strong>6 % sind ein Durchschnitt, kein Versprechen.</strong> Echte Kurse schwanken stark, einzelne Jahre liegen bei −40 % oder +30 %. Der Wert ist als geometrisches Mittel (CAGR) gemeint. Das arithmetische Mittel einzelner Jahresrenditen liegt bei schwankenden Anlagen immer darüber.</li>
+      <li><strong>Reihenfolge der Renditen.</strong> Mit Sparrate oder Entnahmen hängt das Endergebnis davon ab, wann gute und schlechte Jahre kommen. Die Linie hier kennt dieses Risiko nicht.</li>
+      <li><strong>Kosten.</strong> Fondskosten (TER), Depotgebühren und Spreads sollten in der eingetragenen Rendite schon abgezogen sein.</li>
+      <li><strong>Steuern, vereinfacht.</strong> „Netto bei Verkauf“ zieht 26,375 % Abgeltungsteuer mit Soli auf den Gewinn ab, bei Aktienfonds nach 30 % Teilfreistellung (effektiv rund 18,46 %). Nicht berücksichtigt: Sparerpauschbetrag, Vorabpauschale, Kirchensteuer, Verlustverrechnung. Das Vermögen am Stichtag gilt als Einstandswert. Enthält es schon Kursgewinne, ist die Steuer höher.</li>
+      <li><strong>Inflation.</strong> „Kaufkraft heute“ rechnet mit konstanter Inflation in Euro vom Stichtag. Die Sparrate bleibt nominal gleich, verliert also real an Wert.</li>
+      <li><strong>4-%-Regel.</strong> Eine Faustregel aus US-Daten (Trinity-Studie) für etwa 30 Jahre Entnahme. Für längere Zeiträume und europäische Anleger gelten eher 3 bis 3,5 %.</li>
+      <li><strong>Zeitraffer.</strong> Er verschiebt nur die Anzeige in die Zukunft. Beim Neuladen steht das Zählwerk wieder auf der echten Gegenwart. Eingaben und erreichte Meilensteine bleiben lokal in diesem Browser gespeichert, nichts wird übertragen.</li>
+    </ul>
+  </section>
+
+  <footer>Keine Anlageberatung. Modellrechnung mit konstanter Durchschnittsrendite.</footer>
+</div>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var S_Y=365.25*86400, MS_Y=S_Y*1000, T_MAX=100;
+var LS_KEY='zinseszins-zaehlwerk.v1';
+var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+
+/* ---------- Icons ---------- */
+function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+inner+'</svg>'}
+var COIN=svg('<circle cx="12" cy="12" r="8.5"/><path d="M15 9.2a3.4 3.4 0 1 0 0 5.6M7.8 11h5.4M7.8 13h5.4"/>');
+var CHECK=svg('<path d="M5 12.5l4.5 4.5L19 7.5" stroke-width="2.4"/>');
+
+/* ---------- Formatierung ---------- */
+var NF={},NFM={};
+function nf(d){return NF[d]||(NF[d]=new Intl.NumberFormat('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d}))}
+function nfm(d){return NFM[d]||(NFM[d]=new Intl.NumberFormat('de-DE',{minimumFractionDigits:0,maximumFractionDigits:d}))}
+function eur(x,d){return nf(d).format(x)+' €'}
+function eurAuto(x){var a=Math.abs(x);return eur(x,a>=1000?0:a>=1?2:a>=0.01?4:6)}
+function compact(x){var a=Math.abs(x);
+  if(a<1e4)return nfm(0).format(x);
+  if(a<1e6)return nfm(a<1e5?1:0).format(x/1e3)+' Tsd.';
+  if(a<1e9)return nfm(a<1e7?2:1).format(x/1e6)+' Mio.';
+  return nfm(1).format(x/1e9)+' Mrd.'}
+function pct(x){return nf(1).format(x*100)+' %'}
+function pl(n,s,p){return n===1?s:p}
+function dur(s){
+  if(!isFinite(s)||s<=0)return '–';
+  var D=86400,MO=S_Y/12,a,b;
+  if(s<59.5)return Math.max(1,Math.round(s))+' Sek.';
+  if(s<3600){a=Math.floor(s/60);b=Math.floor(s-a*60);return a+' Min.'+(b?' '+b+' Sek.':'')}
+  if(s<D){a=Math.floor(s/3600);b=Math.floor((s-a*3600)/60);return a+' Std.'+(b?' '+b+' Min.':'')}
+  if(s<MO){a=Math.floor(s/D);b=Math.floor((s-a*D)/3600);return a+' '+pl(a,'Tag','Tage')+(b?' '+b+' Std.':'')}
+  if(s<S_Y){a=Math.floor(s/MO);b=Math.floor((s-a*MO)/D);return a+' '+pl(a,'Monat','Monate')+(b?' '+b+' '+pl(b,'Tag','Tage'):'')}
+  var y=s/S_Y; if(y<100){a=Math.floor(y);b=Math.floor((s-a*S_Y)/MO);return a+' '+pl(a,'Jahr','Jahre')+(b?' '+b+' '+pl(b,'Monat','Monate'):'')}
+  return nfm(0).format(y)+' Jahre';
+}
+var DF_FULL=new Intl.DateTimeFormat('de-DE',{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+var DF_DAY=new Intl.DateTimeFormat('de-DE',{day:'numeric',month:'short',year:'numeric'});
+var DF_MON=new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'});
+
+/* ---------- Speicher ---------- */
+function readStore(){try{var raw=localStorage.getItem(LS_KEY);return raw?JSON.parse(raw):null}catch(e){return null}}
+function writeStore(){try{localStorage.setItem(LS_KEY,JSON.stringify(st))}catch(e){}}
+var loadedAt=Date.now();
+var saved=readStore();
+function defaults(){return {V0:50000,s:500,r:6,i:2,tf:true,stichtag:Date.now(),mode:'nominal',unlocked:[],sig:'',lastSeen:null,example:true}}
+var st=Object.assign(defaults(),saved||{});
+['V0','s','r','i','stichtag'].forEach(function(k){if(typeof st[k]!=='number'||!isFinite(st[k]))st[k]=defaults()[k]});
+if(!Array.isArray(st.unlocked))st.unlocked=[];
+if(st.mode!=='real')st.mode='nominal';
+
+/* ---------- Modell ---------- */
+var M;
+function buildModel(){M={k:Math.log1p(st.r/100),j:Math.log1p(st.i/100),V0:st.V0,S:st.s*12}}
+function nom(t){t=Math.max(0,t);var g=Math.exp(M.k*t);
+  var V=M.V0*g+(Math.abs(M.k)<1e-12?M.S*t:M.S*(g-1)/M.k);var C=M.V0+M.S*t;return {V:V,C:C,Z:V-C}}
+function rea(t){t=Math.max(0,t);var n=nom(t),d=Math.exp(-M.j*t);
+  var C=M.V0+(Math.abs(M.j)<1e-12?M.S*t:M.S*(1-d)/M.j);var V=n.V*d;return {V:V,C:C,Z:V-C}}
+function isReal(){return st.mode==='real'}
+function val(t){return isReal()?rea(t):nom(t)}
+function other(t){return isReal()?nom(t):rea(t)}
+/* Zinsfluss und Sparfluss in € pro Jahr, in der gewählten Darstellung */
+function zinsFluss(t){if(t<0)return 0;var V=nom(t).V;return isReal()?(M.k-M.j)*V*Math.exp(-M.j*t):M.k*V}
+function sparFluss(t){if(t<0)return 0;return isReal()?M.S*Math.exp(-M.j*t):M.S}
+function kEff(){return isReal()?M.k-M.j:M.k}
+function sig(){return [st.V0,st.s,st.r,st.i,st.stichtag,st.mode].join('|')}
+function dateAt(t){return new Date(st.stichtag+t*MS_Y)}
+
+/* ---------- Zeit ---------- */
+var simOffset=0,speed=1,paused=false,lastTickReal=Date.now();
+function tOf(ms){return (ms-st.stichtag)/MS_Y}
+function simMs(){return Date.now()+simOffset}
+function tNow(){return tOf(simMs())}
+
+/* ---------- Zählwerk ---------- */
+function setOdo(el,str){
+  var pat=str.replace(/\d/g,'0');
+  if(el._pat!==pat){
+    el.classList.remove('ready');el.innerHTML='';el._cols=[];
+    for(var i=0;i<str.length;i++){
+      var ch=str[i];
+      if(/\d/.test(ch)){
+        var d=document.createElement('span');d.className='d';
+        var c=document.createElement('span');c.className='col';
+        for(var n=0;n<10;n++){var s=document.createElement('span');s.textContent=n;c.appendChild(s)}
+        d.appendChild(c);el.appendChild(d);el._cols.push(c);
+      }else{var sp=document.createElement('span');sp.className='sep';sp.textContent=ch;el.appendChild(sp);el._cols.push(null)}
+    }
+    el._pat=pat;
+    void el.offsetWidth;
+    requestAnimationFrame(function(){el.classList.add('ready')});
+  }
+  for(var k=0;k<str.length;k++){var col=el._cols[k];if(col)col.style.transform='translateY('+(-(+str[k]))+'em)'}
+}
+function renderOdo(V){
+  var main=nf(2).format(V);
+  setOdo($('#odo-main'),main);
+  var subEl=$('#odo-sub');
+  if(Math.abs(V)<1e9){var sub=Math.floor(Math.abs(V)*1e6+1e-6)%10000;setOdo(subEl,String(sub).padStart(4,'0'));subEl.hidden=false}
+  else subEl.hidden=true;
+  $('#odo-sr').textContent='Vermögen '+eur(V,2);
+}
+function floatDelta(dv){
+  if(reduceMotion.matches||!(dv>0))return;
+  var el=document.createElement('span');el.className='float';el.innerHTML=COIN+'+'+eurAuto(dv);
+  $('#odo-wrap').appendChild(el);el.addEventListener('animationend',function(){el.remove()});
+}
+
+/* ---------- Hinweise ---------- */
+function toast(text){
+  var box=$('#toasts'),el=document.createElement('div');el.className='toast';
+  el.innerHTML=CHECK+'<span></span>';el.lastChild.textContent=text;box.appendChild(el);
+  while(box.children.length>4)box.firstChild.remove();
+  setTimeout(function(){el.classList.add('out');setTimeout(function(){el.remove()},450)},5200);
+}
+
+/* ---------- Ertragsuhr ---------- */
+var UNITS=[['Sekunde',1],['Minute',60],['Stunde',3600],['Tag',86400],['Monat',S_Y/12],['Jahr',S_Y]];
+var clockEls=[];
+function buildClock(){
+  var box=$('#clock');box.innerHTML='';clockEls=[];
+  UNITS.forEach(function(u){
+    var d=document.createElement('div');
+    d.innerHTML='<span class="label">pro '+u[0]+'</span><span class="big"></span><span class="small"></span>';
+    box.appendChild(d);clockEls.push({z:d.children[1],g:d.children[2],sec:u[1]});
+  });
+}
+
+/* ---------- Kaufkraft-Karten ---------- */
+var ITEMS=[
+  {name:'Cappuccino',price:3.5,icon:'<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M9 3c-1 1 1 2 0 3M12.5 3c-1 1 1 2 0 3"/><path d="M4 21h13"/>'},
+  {name:'Döner',price:8,icon:'<path d="M7 3h10l-2.5 18h-5z"/><path d="M8 7h8M8.6 11h6.8M9.2 15h5.6"/>'},
+  {name:'Kinoticket',price:14,icon:'<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z"/><path d="M15 7v2M15 11v2M15 15v2"/>'},
+  {name:'Streaming-Abo, 1 Monat',price:18,icon:'<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M10 8.5v5l4.5-2.5z"/><path d="M8 21h8"/>'},
+  {name:'Tankfüllung',price:95,icon:'<path d="M4 21V5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v16"/><path d="M3 21h11"/><path d="M6.5 8h4"/><path d="M13 11h1.5a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 0 3 0V9l-3-3"/>'},
+  {name:'Wocheneinkauf',price:120,icon:'<path d="M3 9h18l-1.8 10.2a1 1 0 0 1-1 .8H5.8a1 1 0 0 1-1-.8z"/><path d="M8 9l3-5M16 9l-3-5"/><path d="M9 13v3M15 13v3M12 13v3"/>'},
+  {name:'Smartphone',price:900,icon:'<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/>'},
+  {name:'Warmmiete, 1 Monat',price:1100,icon:'<path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>'},
+  {name:'Sommerurlaub',price:2500,icon:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4.5h6V7"/><path d="M7 7v13M17 7v13"/>'},
+  {name:'E-Bike',price:3500,icon:'<circle cx="5.5" cy="16" r="3.5"/><circle cx="18.5" cy="16" r="3.5"/><path d="M5.5 16L9.5 9h6l3 7M9.5 9l3.5 7M14 6h2.5l-1 3"/>'},
+  {name:'Gebrauchtwagen',price:18000,icon:'<path d="M3 16v-3l2-5a2 2 0 0 1 1.9-1.3h10.2A2 2 0 0 1 19 8l2 5v3z"/><circle cx="7.5" cy="16.5" r="2"/><circle cx="16.5" cy="16.5" r="2"/><path d="M5 12h14"/>'},
+  {name:'Eigentumswohnung',price:350000,icon:'<path d="M4 21V4h10v17"/><path d="M14 9h6v12"/><path d="M2 21h20"/><path d="M7 8h1M10.5 8h1M7 12h1M10.5 12h1M7 16h1M10.5 16h1M17 13h.5M17 17h.5"/>'}
+];
+function buildItems(){
+  var box=$('#items');box.innerHTML='';
+  ITEMS.forEach(function(it){
+    var d=document.createElement('div');d.className='item';
+    d.innerHTML='<div class="item-top"><span class="ico">'+svg(it.icon)+'</span><div><h3></h3><span class="price"></span></div></div>'+
+      '<p class="every"></p><div class="bar"><i></i></div><p class="count"></p>';
+    d.querySelector('h3').textContent=it.name;
+    d.querySelector('.price').textContent=eur(it.price,it.price<100?2:0);
+    box.appendChild(d);
+    it.el=d;it.every=d.querySelector('.every');it.bar=d.querySelector('.bar i');it.count=d.querySelector('.count');it.lastN=null;it.lastP=0;
+  });
+}
+
+/* ---------- Meilensteine ---------- */
+var MS=[];
+function crossT(pred){
+  if(pred(0))return 0;
+  for(var t=0.25;t<=T_MAX+1e-9;t+=0.25){
+    if(pred(t)){var lo=t-0.25,hi=t;for(var n=0;n<42;n++){var m=(lo+hi)/2;if(pred(m))hi=m;else lo=m}return hi}
+  }
+  return null;
+}
+function buildMilestones(){
+  var L=[],V0=st.V0,s=st.s,suffix=isReal()?' (Kaufkraft heute)':'';
+  L.push({id:'zins1',name:'Erster Zins-Euro',desc:'Die Zinsen seit dem Stichtag ergeben zusammen 1 €.',pred:function(t){return val(t).Z>=1}});
+  [[1e4,'10.000 €'],[2.5e4,'25.000 €'],[5e4,'50.000 €'],[1e5,'Sechsstellig'],[2.5e5,'Viertelmillion'],[5e5,'Halbe Million'],[1e6,'Erste Million'],[2e6,'Zwei Millionen'],[5e6,'Fünf Millionen'],[1e7,'Zehn Millionen']]
+    .forEach(function(p){var x=p[0];if(x<=V0*0.5)return;
+      L.push({id:'v'+x,name:p[1],desc:'Vermögen erreicht '+eur(x,0)+suffix+'.',pred:function(t){return val(t).V>=x}})});
+  if(V0>0)L.push({id:'dbl',name:'Verdopplung',desc:'Das Startvermögen ist auf '+eur(2*V0,0)+' gewachsen.',pred:function(t){return val(t).V>=2*V0}});
+  if(s>0)L.push({id:'kipp',name:'Kipppunkt',desc:'Die Zinsen pro Monat sind höher als die Sparrate von '+eur(s,0)+'.',pred:function(t){return t>=0&&zinsFluss(t)>=sparFluss(t)}});
+  if(s>0)L.push({id:'half',name:'Zinsen überholen Einzahlungen',desc:'Mehr als die Hälfte des Vermögens stammt aus Zinsen.',pred:function(t){var v=val(t);return v.Z>v.C}});
+  L.push({id:'miete',name:'Zinsen zahlen die Miete',desc:'Monatliche Zinsen von mindestens 1.100 €, etwa eine Warmmiete.',pred:function(t){return zinsFluss(t)/12>=1100}});
+  L.push({id:'fire',name:'Entnahme 2.500 € im Monat',desc:'Nach der 4-%-Regel trägt das Vermögen 2.500 € pro Monat.',pred:function(t){return val(t).V*0.04/12>=2500}});
+  L.forEach(function(m){m.tc=crossT(m.pred)});
+  L.sort(function(a,b){return (a.tc==null?1e9:a.tc)-(b.tc==null?1e9:b.tc)});
+  var box=$('#ms');box.innerHTML='';
+  L.forEach(function(m){
+    var li=document.createElement('li');
+    li.innerHTML='<span class="stamp">'+CHECK+'</span><div><h3></h3><p></p><p class="when"></p></div>';
+    li.querySelector('h3').textContent=m.name;li.querySelector('p').textContent=m.desc;
+    box.appendChild(li);m.li=li;m.when=li.querySelector('.when');
+  });
+  MS=L;
+}
+function unlockedSet(){return new Set(st.unlocked)}
+function syncUnlockSilently(t){st.unlocked=MS.filter(function(m){return m.pred(t)}).map(function(m){return m.id});st.sig=sig();writeStore()}
+
+/* ---------- Farben aus den Tokens ---------- */
+var COL={};
+function readColors(){var cs=getComputedStyle(document.documentElement);
+  ['ink','soft','rule','brass','mint','sheet','paper'].forEach(function(k){COL[k]=cs.getPropertyValue('--'+k).trim()||'#888888'});
+  COL.mono=cs.getPropertyValue('--f-num').trim();}
+function rgba(hex,a){var h=hex.replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');
+  var n=parseInt(h,16);return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')'}
+function fitCanvas(cv,w,h){var dpr=window.devicePixelRatio||1;var W=Math.round(w*dpr),H=Math.round(h*dpr);
+  if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}cv.style.height=h+'px';var ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);return ctx}
+
+/* ---------- Guilloche-Rosette ---------- */
+var rosAngle=0;
+function gcd(a,b){return b?gcd(b,a%b):a}
+function drawRosette(){
+  var cv=$('#rosette'),s=cv.clientWidth||560,ctx=fitCanvas(cv,s,s);
+  ctx.translate(s/2,s/2);
+  var layers=[[96,23,60,.20],[80,17,52,.14],[60,13,38,.18],[42,11,20,.12]];
+  var sc=(s/2-6)/133;
+  layers.forEach(function(L){var R=L[0],r=L[1],d=L[2];var per=2*Math.PI*r/gcd(R,r);var steps=4200;
+    ctx.beginPath();
+    for(var n=0;n<=steps;n++){var th=per*n/steps;var x=(R-r)*Math.cos(th)+d*Math.cos((R-r)/r*th);var y=(R-r)*Math.sin(th)-d*Math.sin((R-r)/r*th);
+      if(n)ctx.lineTo(x*sc,y*sc);else ctx.moveTo(x*sc,y*sc)}
+    ctx.strokeStyle=rgba(COL.brass,L[3]);ctx.lineWidth=.7;ctx.stroke();});
+}
+
+/* ---------- Tresor ---------- */
+var vaultPrev={unit:0,cells:0};
+function drawVault(t){
+  var cv=$('#vault'),w=cv.parentElement.clientWidth-32;if(w<=0)return;
+  var v=val(t),V=Math.max(0,v.V);
+  var target=V/600,unit=1,p=1,found=false;
+  while(!found){for(var q=0;q<3;q++){var m=[1,2,5][q]*p;if(m>=target){unit=m;found=true;break}}p*=10}
+  var cells=Math.floor(V/unit),cC=Math.min(cells,Math.max(0,Math.floor(v.C/unit)));
+  var size=w<420?9:11,gap=3,cols=Math.max(1,Math.floor((w+gap)/(size+gap))),rows=Math.max(1,Math.ceil(cells/cols));
+  var h=rows*(size+gap)-gap,ctx=fitCanvas(cv,w,h),r=size/2;
+  var fresh=vaultPrev.unit===unit?vaultPrev.cells:cells;
+  for(var i=0;i<cells;i++){
+    var x=(i%cols)*(size+gap)+r,y=Math.floor(i/cols)*(size+gap)+r;
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=i>=fresh?COL.mint:(i<cC?rgba(COL.soft,.7):COL.brass);ctx.fill();
+    if(i>=cC){ctx.beginPath();ctx.arc(x,y,r*.55,0,Math.PI*2);ctx.strokeStyle=rgba(COL.sheet,.55);ctx.lineWidth=1;ctx.stroke()}
+  }
+  var share=V>0?Math.max(0,v.Z)/V:0;
+  $('#vault-cap').textContent='1 Münze = '+eur(unit,0)+' · '+nf(0).format(cells)+' Münzen · '+pct(1-share)+' Einzahlungen, '+pct(share)+' Zinsen';
+  vaultPrev={unit:unit,cells:cells};
+}
+
+/* ---------- Prognose-Diagramm ---------- */
+var hoverT=null,geom=null;
+function niceStep(raw){if(raw<=0)return 1;var p=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/p;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
+function horizon(t){return Math.min(T_MAX,Math.max(40,Math.ceil(Math.max(0,t)/5)*5+10))}
+function drawChart(t){
+  var cv=$('#chart'),w=cv.parentElement.clientWidth-28;if(w<=0)return;
+  var h=cv.clientHeight||300,ctx=fitCanvas(cv,w,h);
+  var narrow=w<520,P={l:narrow?48:66,r:10,t:10,b:26},H=horizon(t),N=200,pts=[],ymax=0;
+  for(var n=0;n<=N;n++){var tt=H*n/N,a=val(tt),o=other(tt);pts.push([tt,a.V,a.C,o.V]);ymax=Math.max(ymax,a.V,a.C,o.V)}
+  var step=niceStep(ymax/4),ytop=Math.ceil(ymax/step)*step||1;
+  var X=function(tt){return P.l+(w-P.l-P.r)*tt/H},Y=function(v){return h-P.b-(h-P.t-P.b)*v/ytop};
+  geom={P:P,w:w,h:h,H:H,X:X,Y:Y};
+  ctx.font='11px '+COL.mono;ctx.textBaseline='middle';
+  for(var v=0;v<=ytop+step/2;v+=step){var y=Math.round(Y(v))+.5;
+    ctx.strokeStyle=rgba(COL.rule,1);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(P.l,y);ctx.lineTo(w-P.r,y);ctx.stroke();
+    ctx.fillStyle=COL.soft;ctx.textAlign='right';ctx.fillText(compact(v),P.l-6,y)}
+  var xs=H<=40?5:10,y0=dateAt(0).getFullYear();ctx.textBaseline='top';
+  for(var k=0;k<=H;k+=xs){var x=X(k);ctx.fillStyle=COL.soft;ctx.textAlign=k===0?'left':(k===H?'right':'center');
+    if(!narrow||k%(xs*2)===0)ctx.fillText(String(y0+k),x,h-P.b+8);
+    ctx.strokeStyle=rgba(COL.rule,1);ctx.beginPath();ctx.moveTo(Math.round(x)+.5,h-P.b);ctx.lineTo(Math.round(x)+.5,h-P.b+4);ctx.stroke()}
+  // Einzahlungen
+  ctx.beginPath();ctx.moveTo(X(0),Y(0));pts.forEach(function(p){ctx.lineTo(X(p[0]),Y(Math.max(0,p[2])))});ctx.lineTo(X(H),Y(0));ctx.closePath();
+  ctx.fillStyle=rgba(COL.soft,.22);ctx.fill();
+  // Zinsen
+  ctx.beginPath();pts.forEach(function(p,i){i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1]))});
+  for(var b=pts.length-1;b>=0;b--)ctx.lineTo(X(pts[b][0]),Y(Math.max(0,pts[b][2])));ctx.closePath();
+  ctx.fillStyle=rgba(COL.brass,.36);ctx.fill();
+  // Linien
+  function line(idx,color,wd,dash){ctx.beginPath();pts.forEach(function(p,i){i?ctx.lineTo(X(p[0]),Y(p[idx])):ctx.moveTo(X(p[0]),Y(p[idx]))});
+    ctx.setLineDash(dash||[]);ctx.strokeStyle=color;ctx.lineWidth=wd;ctx.stroke();ctx.setLineDash([])}
+  line(2,COL.soft,1.2);line(3,rgba(COL.ink,.6),1.3,[5,4]);line(1,COL.brass,2.2);
+  // aktueller Zeitpunkt
+  if(t>=0&&t<=H){var cx=X(t),cy=Y(val(t).V);
+    ctx.setLineDash([2,3]);ctx.strokeStyle=rgba(COL.ink,.45);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx,P.t);ctx.lineTo(cx,h-P.b);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fillStyle=COL.brass;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=COL.sheet;ctx.stroke()}
+  // Hover
+  var tip=$('#tip');
+  if(hoverT!=null){var ht=Math.min(H,Math.max(0,hoverT)),hx=X(ht),a2=val(ht),o2=other(ht);
+    ctx.strokeStyle=rgba(COL.ink,.7);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(hx,P.t);ctx.lineTo(hx,h-P.b);ctx.stroke();
+    ctx.beginPath();ctx.arc(hx,Y(a2.V),4,0,Math.PI*2);ctx.fillStyle=COL.ink;ctx.fill();
+    tip.innerHTML='<b>'+DF_MON.format(dateAt(ht))+'</b><span class="num">nach '+nfm(1).format(ht)+' Jahren</span>'+
+      '<span class="num">Vermögen '+eur(a2.V,0)+'</span><span class="num">Einzahlungen '+eur(a2.C,0)+'</span>'+
+      '<span class="num">Zinsen '+eur(a2.Z,0)+'</span><span class="num">'+(isReal()?'nominal ':'Kaufkraft heute ')+eur(o2.V,0)+'</span>';
+    tip.hidden=false;var tw=tip.offsetWidth;var left=hx+14+14;if(left+tw>w+14)left=hx+14-tw-14;tip.style.left=Math.max(14,left)+'px';
+  }else tip.hidden=true;
+}
+
+/* ---------- Tabelle ---------- */
+function renderTable(t){
+  var rows=[1,5,10,15,20,30,40],tb=$('#tbody'),html='',nowDone=false;
+  function row(tt,label,cls){var n=nom(tt),r=rea(tt),a=val(tt);
+    var zm=(isReal()?zinsFluss(tt):M.k*n.V)/12;
+    return '<tr'+(cls?' class="'+cls+'"':'')+'><td>'+label+'</td><td>'+DF_DAY.format(dateAt(tt))+'</td><td>'+eur(a.V,0)+'</td><td>'+eur(a.C,0)+'</td><td>'+eur(a.Z,0)+'</td><td>'+(a.V>0?pct(Math.max(0,a.Z)/a.V):'–')+'</td><td>'+eur(r.V,0)+'</td><td>'+eur(zm,0)+'</td></tr>'}
+  var tc=Math.max(0,t);
+  rows.forEach(function(y){
+    if(!nowDone&&tc<y){html+=row(tc,'Jetzt im Zählwerk','now');nowDone=true}
+    html+=row(y,y+' '+pl(y,'Jahr','Jahren'));
+  });
+  if(!nowDone)html+=row(tc,'Jetzt im Zählwerk','now');
+  tb.innerHTML=html;
+}
+
+/* ---------- Gesamtdarstellung ---------- */
+var prevV=null,sessT0=0;
+function render(t,animate){
+  var v=val(t),n=nom(t),zps=zinsFluss(t)/S_Y,sps=sparFluss(t)/S_Y;
+  renderOdo(v.V);
+  if(animate&&prevV!=null)floatDelta(v.V-prevV);
+  var dv=prevV==null?0:v.V-prevV;prevV=v.V;
+  $('#h-asof').textContent='Stand '+DF_FULL.format(new Date(simMs()));
+  $('#h-mode').textContent=isReal()?'Kaufkraft von heute':'nominal';
+  $('#h-rate').textContent='+'+eurAuto(zps+sps)+' pro Sekunde';
+  $('#h-rate2').textContent='Davon '+eurAuto(zps)+' Zinsen und '+eurAuto(sps)+' Sparrate. Jede Sekunde arbeitet der Zinseszins auf dem neuen, etwas höheren Stand weiter.';
+  var sv=v.V-val(sessT0).V,sz=v.Z-val(sessT0).Z;
+  $('#h-session').innerHTML='Seit dem Öffnen <span class="num">+'+eurAuto(sv)+'</span>, davon Zinsen <span class="num">'+eurAuto(sz)+'</span>';
+  $('#h-tick').innerHTML='Letzter Takt <span class="num">+'+eurAuto(Math.max(0,dv))+'</span>';
+  var jump=$('#h-jump');
+  var ahead=simOffset>2000?dur(simOffset/1000)+' in der Zukunft':simOffset<-2000?dur(-simOffset/1000)+' hinter der Gegenwart':'';
+  if(paused){jump.hidden=false;jump.textContent='Angehalten'+(ahead?' · '+ahead:'')}
+  else if(ahead){jump.hidden=false;jump.textContent='Zeitraffer: '+ahead}
+  else jump.hidden=true;
+  var fut=$('#h-future');
+  if(t<0){fut.hidden=false;fut.textContent='Stichtag liegt in der Zukunft. Verzinsung startet am '+DF_DAY.format(dateAt(0))}else fut.hidden=true;
+
+  // Kennzahlen
+  var share=v.V>0?Math.max(0,v.Z)/v.V:0;
+  $('#k-z').textContent=eur(v.Z,2);$('#k-z2').textContent='Zinsanteil '+pct(share);
+  $('#k-c').textContent=eur(v.C,2);$('#k-c2').textContent=eur(st.V0,0)+' Start + '+eur(Math.max(0,v.C-st.V0),0)+' Sparraten'+(isReal()?' (real)':'');
+  var gain=Math.max(0,n.Z),tax=gain*(st.tf?0.7:1)*0.26375,net=n.V-tax,defl=isReal()?Math.exp(-M.j*Math.max(0,t)):1;
+  $('#k-n').textContent=eur(net*defl,2);$('#k-n2').textContent='Steuer etwa '+eur(tax*defl,0)+(st.tf?', Aktienfonds':', ohne Teilfreistellung');
+  $('#k-w').textContent=eur(v.V*0.04/12,2);
+
+  // Ertragsuhr
+  clockEls.forEach(function(c){c.z.textContent=eurAuto(zps*c.sec);c.g.textContent='mit Sparrate '+eurAuto((zps+sps)*c.sec)});
+
+  // Kaufkraft-Karten
+  var yearZ=zinsFluss(t),earned=Math.max(0,sz);
+  ITEMS.forEach(function(it){
+    var locked=yearZ<it.price;it.el.classList.toggle('locked',locked);
+    var secs=zps>0?it.price/zps:Infinity;
+    if(locked){var ke=kEff();it.every.textContent=ke>0?'Frei ab '+eur(it.price/ke,0)+' Vermögen':'Bei dieser Rendite nicht erreichbar'}
+    else it.every.textContent=secs<1?nfm(1).format(1/secs)+'× pro Sekunde':'Alle '+dur(secs);
+    var cnt=Math.floor(earned/it.price),frac=(earned-cnt*it.price)/it.price;
+    if(secs<2)frac=1;
+    var pctW=Math.min(100,Math.max(0,frac*100));
+    it.bar.classList.toggle('jump',pctW<it.lastP||secs<2);it.bar.style.width=pctW.toFixed(2)+'%';it.lastP=pctW;
+    it.count.textContent=cnt>0?nf(0).format(cnt)+'× bezahlt seit dem Öffnen':(locked?'':'Noch '+eurAuto(it.price-earned)+' bis zum ersten');
+    if(animate&&it.lastN!=null&&cnt>it.lastN&&!reduceMotion.matches&&secs/(paused?1:speed)>3){it.el.classList.remove('pop');void it.el.offsetWidth;it.el.classList.add('pop')}
+    it.lastN=cnt;
+  });
+
+  // Meilensteine
+  var un=unlockedSet(),changed=false;
+  MS.forEach(function(m){
+    var done=m.pred(t);m.li.classList.toggle('done',done);
+    if(done){m.when.textContent=m.tc===0?'erreicht bereits am Stichtag':'erreicht am '+DF_DAY.format(dateAt(m.tc==null?t:m.tc))}
+    else m.when.textContent=m.tc==null?'nicht innerhalb von 100 Jahren':'voraussichtlich '+DF_MON.format(dateAt(m.tc))+' · in '+dur((m.tc-Math.max(0,t))*S_Y);
+    if(done&&!un.has(m.id)){un.add(m.id);changed=true;
+      if(animate){toast('Meilenstein erreicht: '+m.name);m.li.classList.add('new');setTimeout(function(){m.li.classList.remove('new')},1200)}}
+  });
+  if(changed){st.unlocked=Array.from(un);writeStore()}
+
+  drawVault(t);drawChart(t);renderTable(t);
+}
+
+/* ---------- Takt ---------- */
+function tick(){
+  var now=Date.now(),el=now-lastTickReal;lastTickReal=now;
+  if(paused)simOffset-=el;
+  else if(speed>1)simOffset+=Math.min(el,1500)*(speed-1);
+  var t=tOf(now+simOffset);
+  if(t>T_MAX){simOffset=st.stichtag+T_MAX*MS_Y-now;paused=true;syncButtons();toast('Ende des Zeitstrahls: 100 Jahre nach dem Stichtag.');t=T_MAX}
+  var led=$('#led');led.classList.remove('on');void led.offsetWidth;led.classList.add('on');
+  if(!reduceMotion.matches){rosAngle+=speed>1?2.4:.6;$('#rosette').style.transform='translateY(-50%) rotate('+rosAngle+'deg)'}
+  render(t,true);
+  if(now-(st.lastSeen||0)>5000){st.lastSeen=now;writeStore()}
+}
+
+/* ---------- Bedienung ---------- */
+function syncButtons(){
+  document.querySelectorAll('#speeds button').forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.speed===speed))});
+  document.querySelectorAll('#modes button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.mode===st.mode))});
+  $('#b-pause').textContent=paused?'Weiterlaufen':'Anhalten';
+  $('#leg-other').textContent=isReal()?'– – nominal':'– – Kaufkraft heute';
+  $('#proj-note').textContent=isReal()?'Werte in Kaufkraft vom Stichtag, Inflation '+nf(1).format(st.i)+' % p. a.':'Nominale Werte bei '+nf(1).format(st.r)+' % p. a. Zum Ablesen über das Diagramm fahren.';
+  $('#hdr-rate').textContent=nf(1).format(st.r)+' %';
+}
+$('#speeds').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;speed=+b.dataset.speed;paused=false;syncButtons();tick()});
+$('#modes').addEventListener('click',function(e){var b=e.target.closest('button');if(!b||b.dataset.mode===st.mode)return;st.mode=b.dataset.mode;settingsChanged(false)});
+$('#b-pause').addEventListener('click',function(){paused=!paused;syncButtons()});
+$('#b-now').addEventListener('click',function(){simOffset=0;speed=1;paused=false;syncButtons();prevV=null;tick()});
+$('#welcome-x').addEventListener('click',function(){$('#welcome').hidden=true});
+
+function settingsChanged(resetSession){
+  buildModel();buildMilestones();
+  var t=tNow();if(resetSession!==false)sessT0=Math.max(0,t);
+  syncUnlockSilently(t);prevV=null;vaultPrev={unit:0,cells:0};
+  ITEMS.forEach(function(it){it.lastN=null});
+  syncButtons();writeStore();render(t,false);
+}
+
+/* ---------- Formular ---------- */
+var F={v0:$('#f-v0'),s:$('#f-s'),r:$('#f-r'),rr:$('#f-rr'),i:$('#f-i'),date:$('#f-date'),tf:$('#f-tf')};
+function isoDate(ms){var d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function fillForm(){F.v0.value=st.V0;F.s.value=st.s;F.r.value=st.r;F.rr.value=Math.min(12,Math.max(0,st.r));F.i.value=st.i;F.date.value=isoDate(st.stichtag);F.tf.checked=!!st.tf;$('#example-chip').hidden=!st.example}
+function num(inp){var x=parseFloat(String(inp.value).replace(',','.'));return isFinite(x)?x:NaN}
+function check(inp,errEl,ok,msg,hint){inp.setAttribute('aria-invalid',String(!ok));errEl.textContent=ok?hint:msg;errEl.classList.toggle('err',!ok);return ok}
+var HINT={v0:'Startwert der Rechnung',s:'0, wenn du nichts nachschießt',r:'Durchschnitt nach Kosten',i:'Für die Ansicht „Kaufkraft heute“',date:'Ab hier läuft die Verzinsung'};
+var debounceId=null;
+function applyForm(){
+  var v0=num(F.v0),s=num(F.s),r=num(F.r),i=num(F.i),ok=true;
+  ok=check(F.v0,$('#e-v0'),v0>=0&&v0<=1e10,'Bitte einen Betrag von 0 bis 10 Mrd. € eingeben.',HINT.v0)&&ok;
+  ok=check(F.s,$('#e-s'),s>=0&&s<=1e6,'Bitte 0 bis 1 Mio. € pro Monat eingeben.',HINT.s)&&ok;
+  ok=check(F.r,$('#e-r'),r>=-10&&r<=20,'Bitte eine Rendite zwischen −10 und 20 % eingeben.',HINT.r)&&ok;
+  ok=check(F.i,$('#e-i'),i>=-5&&i<=15,'Bitte eine Inflation zwischen −5 und 15 % eingeben.',HINT.i)&&ok;
+  var dm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(F.date.value),dateMs=null;
+  if(dm){dateMs=new Date(+dm[1],+dm[2]-1,+dm[3]).getTime()}
+  var dOk=dateMs!=null&&Math.abs(dateMs-Date.now())<150*MS_Y;
+  ok=check(F.date,$('#e-date'),dOk,'Bitte ein gültiges Datum eingeben.',HINT.date)&&ok;
+  if(!ok)return;
+  var newStich=isoDate(dateMs)===isoDate(st.stichtag)?st.stichtag:dateMs;
+  var changed=v0!==st.V0||s!==st.s||r!==st.r||i!==st.i||newStich!==st.stichtag||F.tf.checked!==st.tf;
+  if(!changed)return;
+  st.V0=v0;st.s=s;st.r=r;st.i=i;st.stichtag=newStich;st.tf=F.tf.checked;st.example=false;$('#example-chip').hidden=true;
+  settingsChanged(true);
+}
+function onInput(e){if(e.target===F.rr){F.r.value=F.rr.value}else if(e.target===F.r){var x=num(F.r);if(isFinite(x))F.rr.value=Math.min(12,Math.max(0,x))}
+  clearTimeout(debounceId);debounceId=setTimeout(applyForm,300)}
+$('#form').addEventListener('input',onInput);
+$('#form').addEventListener('change',onInput);
+$('#form').addEventListener('submit',function(e){e.preventDefault();applyForm()});
+$('#b-reset').addEventListener('click',function(){var d=defaults();d.mode=st.mode;d.lastSeen=st.lastSeen;st=Object.assign(st,d);fillForm();settingsChanged(true)});
+
+/* ---------- Diagramm-Hover ---------- */
+var chart=$('#chart');
+function hov(e){if(!geom)return;var r=chart.getBoundingClientRect(),x=e.clientX-r.left;hoverT=(x-geom.P.l)/(geom.w-geom.P.l-geom.P.r)*geom.H;drawChart(tNow())}
+chart.addEventListener('pointermove',hov);chart.addEventListener('pointerdown',hov);
+chart.addEventListener('pointerleave',function(){hoverT=null;drawChart(tNow())});
+
+/* ---------- Theme und Größe ---------- */
+function redrawAll(){readColors();drawRosette();vaultPrev={unit:0,cells:0};var t=tNow();drawVault(t);drawChart(t)}
+try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',redrawAll)}catch(e){}
+new MutationObserver(redrawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','class']});
+var rzId=null;
+if(window.ResizeObserver){new ResizeObserver(function(){clearTimeout(rzId);rzId=setTimeout(redrawAll,80)}).observe(document.querySelector('.wrap'))}
+else window.addEventListener('resize',function(){clearTimeout(rzId);rzId=setTimeout(redrawAll,80)});
+function persistSeen(){st.lastSeen=Date.now();writeStore()}
+document.addEventListener('visibilitychange',function(){if(document.hidden)persistSeen();else tick()});
+window.addEventListener('pagehide',persistSeen);
+
+/* ---------- Start ---------- */
+readColors();buildModel();buildClock();buildItems();buildMilestones();fillForm();syncButtons();
+var t0=tNow();sessT0=Math.max(0,t0);
+var sameSettings=saved&&st.sig===sig();
+if(saved&&sameSettings&&st.lastSeen&&loadedAt-st.lastSeen>60000){
+  var t1=tOf(st.lastSeen),a=val(t1),b=val(t0);
+  $('#welcome-text').textContent='Willkommen zurück. Seit deinem letzten Besuch vor '+dur((loadedAt-st.lastSeen)/1000)+' ist dein Vermögen um '+eurAuto(b.V-a.V)+' gewachsen, davon '+eurAuto(b.Z-a.Z)+' Zinsen.';
+  var un=unlockedSet(),newly=MS.filter(function(m){return m.pred(t0)&&!un.has(m.id)});
+  if(newly.length){var ul=$('#welcome-list');ul.hidden=false;newly.forEach(function(m){var li=document.createElement('li');li.textContent='Inzwischen erreicht: '+m.name;ul.appendChild(li)})}
+  $('#welcome').hidden=false;
+}
+if(sameSettings){var un2=unlockedSet();MS.forEach(function(m){if(m.pred(t0))un2.add(m.id)});st.unlocked=Array.from(un2)}
+else syncUnlockSilently(t0);
+st.lastSeen=loadedAt;writeStore();
+drawRosette();render(t0,false);
+setTimeout(function(){tick();setInterval(tick,1000)},1000-(Date.now()%1000));
+})();
+</script>
+</body>
+</html>
