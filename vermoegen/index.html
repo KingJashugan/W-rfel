@@ -299,7 +299,7 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
   </section>
 
   <section aria-labelledby="s-per">
-    <div class="sec-head"><h2 id="s-per">Zeiträume</h2><p>Was die Rendite für einen Tag, eine Woche, einen Monat und ein Jahr bedeutet. Antippen, damit das Zählwerk nur diesen Zeitraum hochzählt; noch einmal antippen zeigt wieder das Gesamtvermögen.</p></div>
+    <div class="sec-head"><h2 id="s-per">Zeiträume</h2><p>Was die Rendite für einen Tag, eine Woche, einen Monat und ein Jahr bedeutet. Immer der volle Kalenderzeitraum: Woche ab Montag, Jahr ab 1. Januar. Liegt der Stichtag später, wird mit derselben Rendite und Sparrate zurückgerechnet. Antippen, damit das Zählwerk nur diesen Zeitraum hochzählt; noch einmal antippen zeigt wieder das Gesamtvermögen.</p></div>
     <div class="ledger periods" id="periods"></div>
   </section>
 
@@ -406,7 +406,7 @@ footer{font-size:.78rem;color:var(--soft);border-top:1px solid var(--rule);paddi
     <h2 id="s-notes">Annahmen und Grenzen</h2>
     <p class="formula">V(t) = V₀ · (1 + r)<sup>t</sup> + 12 · s · ((1 + r)<sup>t</sup> − 1) / ln(1 + r)</p>
     <ul>
-      <li><strong>Rechenweise.</strong> Die Rendite r wird als effektiver Jahreszins stetig verteilt, damit jede Sekunde einen Zuwachs bekommt. Gerechnet wird ab 0:00 Uhr des Stichtags, unabhängig davon, wann du ihn einträgst. Die Sparrate s fließt rechnerisch gleichmäßig zu statt einmal im Monat. Gegenüber monatlicher Einzahlung ist das eine kleine Glättung, keine andere Rendite.</li>
+      <li><strong>Rechenweise.</strong> Die Rendite r wird als effektiver Jahreszins stetig verteilt, damit jede Sekunde einen Zuwachs bekommt. Gerechnet wird ab 0:00 Uhr des Stichtags, unabhängig davon, wann du ihn einträgst. Meilensteine, Kassenstand, Tresor und Prognose beginnen am Stichtag. Nur die Zeiträume (Tag, Woche ab Montag, Monat, Jahr ab 1. Januar, Rückblicke) rechnen vor dem Stichtag mit gleicher Rendite und Sparrate zurück, damit sie immer den vollen Zeitraum zeigen; höchstens bis zu dem Punkt, an dem das Vermögen 0 € gewesen wäre. Die Sparrate s fließt rechnerisch gleichmäßig zu statt einmal im Monat. Gegenüber monatlicher Einzahlung ist das eine kleine Glättung, keine andere Rendite.</li>
       <li><strong>6 % sind ein Durchschnitt, kein Versprechen.</strong> Echte Kurse schwanken stark, einzelne Jahre liegen bei −40 % oder +30 %. Der Wert ist als geometrisches Mittel (CAGR) gemeint. Das arithmetische Mittel einzelner Jahresrenditen liegt bei schwankenden Anlagen immer darüber.</li>
       <li><strong>Reihenfolge der Renditen.</strong> Mit Sparrate oder Entnahmen hängt das Endergebnis davon ab, wann gute und schlechte Jahre kommen. Die Linie hier kennt dieses Risiko nicht.</li>
       <li><strong>Kosten.</strong> Fondskosten (TER), Depotgebühren und Spreads sollten in der eingetragenen Rendite schon abgezogen sein.</li>
@@ -481,12 +481,17 @@ if(['total','day','week','month','year'].indexOf(st.counter)<0)st.counter='total
 /* ---------- Modell ---------- */
 var M;
 function buildModel(){M={k:Math.log1p(st.r/100),j:Math.log1p(st.i/100),V0:st.V0,S:st.s*12}}
-function nom(t){t=Math.max(0,t);var g=Math.exp(M.k*t);
+function nom(t,ext){if(!ext)t=Math.max(0,t);var g=Math.exp(M.k*t);
   var V=M.V0*g+(Math.abs(M.k)<1e-12?M.S*t:M.S*(g-1)/M.k);var C=M.V0+M.S*t;return {V:V,C:C,Z:V-C}}
-function rea(t){t=Math.max(0,t);var n=nom(t),d=Math.exp(-M.j*t);
+function rea(t,ext){if(!ext)t=Math.max(0,t);var n=nom(t,ext),d=Math.exp(-M.j*t);
   var C=M.V0+(Math.abs(M.j)<1e-12?M.S*t:M.S*(1-d)/M.j);var V=n.V*d;return {V:V,C:C,Z:V-C}}
 function isReal(){return st.mode==='real'}
 function val(t){return isReal()?rea(t):nom(t)}
+/* Für Kalender-Zeiträume: vor dem Stichtag mit gleicher Rendite und Sparrate zurückgerechnet (ext = nicht bei 0 abschneiden) */
+function valX(t){return isReal()?rea(t,true):nom(t,true)}
+/* Zeitpunkt vor dem Stichtag, an dem das zurückgerechnete Vermögen 0 wäre; früher wird nicht zurückgerechnet */
+function tZero(){if(M.S<=0)return -Infinity;if(Math.abs(M.k)<1e-12)return -M.V0/M.S;
+  var q=M.S/M.k,g=q/(M.V0+q);if(!(g>0))return -Infinity;return Math.min(0,Math.log(g)/M.k)}
 function other(t){return isReal()?nom(t):rea(t)}
 /* Zinsfluss und Sparfluss in € pro Jahr, in der gewählten Darstellung */
 function zinsFluss(t){if(t<0)return 0;var V=nom(t).V;return isReal()?(M.k-M.j)*V*Math.exp(-M.j*t):M.k*V}
@@ -660,7 +665,7 @@ var PER={
     start:function(d){return new Date(d.getFullYear(),0,1)},end:function(s){return new Date(s.getFullYear()+1,0,1)}}
 };
 var PKEYS=['day','week','month','year'];
-function gainBetween(a,b){var x=val(tOf(a)),y=val(tOf(b));return {V:y.V-x.V,Z:y.Z-x.Z}}
+function gainBetween(a,b){var tz=tZero(),x=valX(Math.max(tOf(a),tz)),y=valX(Math.max(tOf(b),tz));return {V:y.V-x.V,Z:y.Z-x.Z}}
 function periodStart(k,ms){return PER[k].start(new Date(ms)).getTime()}
 function buildPeriods(){
   var box=$('#periods');box.innerHTML='';
@@ -673,12 +678,10 @@ function renderPeriods(ms){
   PKEYS.forEach(function(k){var p=PER[k],s=periodStart(k,ms),e=p.end(new Date(s)).getTime(),
       g=gainBetween(s,ms),f=gainBetween(s,e),r=gainBetween(ms-p.rollMs,ms),el=p.el;
     el.querySelector('.big').textContent='+'+eurAuto(g.V);
-    el.querySelector('.since').textContent=(s<st.stichtag?'seit dem Stichtag':p.since)+', davon Zinsen '+eurAuto(g.Z);
+    el.querySelector('.since').textContent=p.since+', davon Zinsen '+eurAuto(g.Z);
     el.querySelector('.bar i').style.width=(Math.min(1,Math.max(0,(ms-s)/(e-s)))*100).toFixed(2)+'%';
     el.querySelector('.full').textContent=p.full+': ≈ +'+eurAuto(f.V);
-    /* Liegt das Rückblick-Fenster vor dem Stichtag, wäre es fast leer: dann den gleichen Zeitraum ab jetzt zeigen */
-    if(ms-p.rollMs>=st.stichtag)el.querySelector('.roll').textContent=p.roll+': +'+eurAuto(r.V)+' (Zinsen '+eurAuto(r.Z)+')';
-    else{var nx=gainBetween(ms,ms+p.rollMs);el.querySelector('.roll').textContent=p.roll.replace('Letzte','Nächste').replace('Letzter','Nächster')+': ≈ +'+eurAuto(nx.V)+' (Zinsen '+eurAuto(nx.Z)+')'}
+    el.querySelector('.roll').textContent=p.roll+': +'+eurAuto(r.V)+' (Zinsen '+eurAuto(r.Z)+')';
   });
 }
 function setCounter(k){if(k!=='total'&&!PER[k])return;st.counter=k;writeStore();syncButtons();prevV=null;render(tNow(),false)}
@@ -799,7 +802,7 @@ function render(t,animate){
   var cm=PER[st.counter]?st.counter:'total';
   if(cm==='total'){renderOdo(v.V,'Vermögen');$('#h-title').textContent='Depotstand';$('#h-total').hidden=true}
   else{var p=PER[cm],g=gainBetween(periodStart(cm,sm),sm);renderOdo(g.V,'Zuwachs '+p.name);
-    $('#h-title').textContent='Zuwachs '+p.name+' · '+(periodStart(cm,sm)<st.stichtag?'seit dem Stichtag':p.since);
+    $('#h-title').textContent='Zuwachs '+p.name+' · '+p.since;
     var tot=$('#h-total');tot.hidden=false;tot.innerHTML='Gesamt <span class="num">'+eur(v.V,2)+'</span>'}
   if(animate&&prevV!=null)floatDelta(v.V-prevV);
   var dv=prevV==null?0:v.V-prevV;prevV=v.V;
